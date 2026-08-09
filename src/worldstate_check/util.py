@@ -229,4 +229,9 @@ def _json_semantic_equal(left: Any, right: Any) -> bool:
 
 
 def _is_number(value: Any) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value))
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except (OverflowError, ValueError):
+        return False

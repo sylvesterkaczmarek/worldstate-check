@@ -170,7 +170,12 @@ def _require_str(check: dict[str, Any], key: str, prefix: str) -> None:
 
 
 def _is_finite_number(value: Any) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value))
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(float(value))
+    except (OverflowError, ValueError):
+        return False
 
 
 def _is_positive_number(value: Any) -> bool:
