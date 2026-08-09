@@ -22,7 +22,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def ctx(tmp_path):
-    return VerificationContext(spec_path=tmp_path / "spec.yaml", root=tmp_path)
+    return VerificationContext(spec_path=tmp_path / "spec.yaml", root=tmp_path, allow_network=True)
 
 
 def server():
@@ -30,6 +30,14 @@ def server():
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     return httpd
+
+
+def test_network_checks_disabled_by_default(tmp_path):
+    disabled = VerificationContext(spec_path=tmp_path / "spec.yaml", root=tmp_path)
+    http_check = {"id": "h", "type": "http", "url": "http://127.0.0.1:1/", "status": 200}
+    tcp_check = {"id": "t", "type": "tcp", "host": "127.0.0.1", "port": 1}
+    assert run_http_check(http_check, disabled).status is CheckStatus.UNKNOWN
+    assert run_tcp_check(tcp_check, disabled).status is CheckStatus.UNKNOWN
 
 
 def test_http_status_and_json(tmp_path):
@@ -60,3 +68,12 @@ def test_tcp_reachable(tmp_path):
     finally:
         httpd.shutdown()
         httpd.server_close()
+
+
+def test_http_evidence_redacts_query_and_credentials(tmp_path):
+    from worldstate_check.util import redact_url_for_evidence
+
+    redacted = redact_url_for_evidence("https://user:secret@example.com:8443/health?token=abc#fragment")
+    assert redacted == "https://example.com:8443/health"
+    assert "secret" not in redacted
+    assert "token" not in redacted

@@ -1,12 +1,14 @@
 # WorldState Check
 
+![WorldState Check](assets/social/github-social-card-worldstate-check.png)
+
 [![CI](https://github.com/sylvesterkaczmarek/worldstate-check/actions/workflows/ci.yml/badge.svg)](https://github.com/sylvesterkaczmarek/worldstate-check/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 **Verify that an autonomous action changed the world as intended.**
 
-WorldState Check evaluates explicit postconditions against independent observations after an AI agent, automation, robot, or autonomous system acts. It distinguishes a successful command from a verified outcome and uses deterministic verdict logic and produces a structured evidence report without requiring an LLM judge.
+WorldState Check evaluates explicit postconditions against independent observations after an AI agent, automation, robot, or autonomous system acts. It distinguishes a successful command from a verified outcome, uses deterministic verdict logic, and produces a structured evidence report without requiring an LLM judge.
 
 ## At a glance
 
@@ -60,8 +62,8 @@ WorldState Check makes the success condition explicit and evaluates observable s
 | `file` | existence, text assertions, SHA-256 |
 | `json` | structured state through deterministic field comparisons |
 | `metric` | JSON or CSV telemetry, thresholds, ranges, freshness |
-| `http` | status, response text, JSON response state |
-| `tcp` | endpoint reachability |
+| `http` | status, response text, JSON response state; network access is opt-in |
+| `tcp` | endpoint reachability; network access is opt-in |
 | `command` | explicit verification commands, opt-in only |
 
 Required checks produce one of three verdicts:
@@ -101,6 +103,12 @@ Then verify the observed state:
 
 ```bash
 worldstate-check verify worldstate.yaml
+```
+
+Specifications that intentionally contact HTTP or TCP endpoints must opt in:
+
+```bash
+worldstate-check verify deployment.yaml --allow-network
 ```
 
 Write a machine-readable evidence report:
@@ -181,9 +189,11 @@ WorldState Check treats the verification specification as potentially powerful i
 - evidence paths are confined to the verification root by default;
 - paths outside that root require `--allow-outside-root`;
 - command checks require `--allow-command`;
+- HTTP and TCP checks require `--allow-network`;
 - commands use an argument vector with `shell=False`;
-- command checks receive only `PATH` and `HOME` from the parent environment;
-- evidence reads have explicit size limits where practical.
+- command checks receive only a minimal environment and do not copy raw argv or output into evidence reports;
+- HTTP evidence redacts URL credentials, query strings, and fragments;
+- specifications and evidence reads have explicit size limits.
 
 See [docs/security.md](docs/security.md).
 

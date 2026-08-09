@@ -19,4 +19,7 @@ jobs:
       - run: python -m pip install -e . pytest
       - run: python -m pytest
       - if: matrix.python-version == '3.13'
-        run: worldstate-check demo --scenario verified
+        run: |
+          worldstate-check demo --scenario verified
+          worldstate-check verify examples/field-maintenance.yaml
+          python -m pip wheel . --no-deps -w dist

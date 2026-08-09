@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import math
 import time
 from datetime import datetime, timezone
 from typing import Any
 
 from .checks import CHECK_RUNNERS
+from .loader import validate_spec
 from .models import CheckResult, CheckStatus, VerificationContext, VerificationReport, Verdict
 
 
@@ -32,10 +34,11 @@ def verify(
     wait_seconds: float = 0.0,
     poll_interval: float = 0.5,
 ) -> VerificationReport:
-    if wait_seconds < 0:
-        raise ValueError("wait_seconds must be non-negative")
-    if poll_interval <= 0:
-        raise ValueError("poll_interval must be positive")
+    validate_spec(spec)
+    if isinstance(wait_seconds, bool) or not isinstance(wait_seconds, (int, float)) or not math.isfinite(float(wait_seconds)) or wait_seconds < 0:
+        raise ValueError("wait_seconds must be a finite non-negative number")
+    if isinstance(poll_interval, bool) or not isinstance(poll_interval, (int, float)) or not math.isfinite(float(poll_interval)) or poll_interval <= 0:
+        raise ValueError("poll_interval must be a finite positive number")
 
     started_wall = datetime.now(timezone.utc)
     started_perf = time.perf_counter()

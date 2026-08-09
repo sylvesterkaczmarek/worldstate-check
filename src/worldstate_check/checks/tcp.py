@@ -5,11 +5,12 @@ from typing import Any
 
 from worldstate_check.models import CheckStatus, VerificationContext
 
-from .base import timed_result
+from .base import timed_result, unknown
 
 
 def run_tcp_check(check: dict[str, Any], ctx: VerificationContext):
-    del ctx
+    if not ctx.allow_network:
+        return unknown(check, "network checks are disabled; pass --allow-network for a trusted specification")
 
     def evaluate():
         expected = check.get("reachable", True)

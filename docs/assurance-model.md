@@ -14,7 +14,7 @@ An acknowledgement is evidence that a command or tool call was accepted. It is n
 - `NOT_VERIFIED`: at least one required postcondition was observed and failed.
 - `UNCERTAIN`: no required postcondition failed, but at least one required postcondition could not be evaluated reliably.
 
-Optional checks are reported but do not block a verified verdict.
+Optional checks are reported but do not block a verified verdict. A valid specification must contain at least one required check.
 
 ## Evidence independence
 

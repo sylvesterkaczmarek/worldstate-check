@@ -1,15 +1,27 @@
 from __future__ import annotations
 
 import csv
-import json
+import io
+import math
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from worldstate_check.errors import PathBoundaryError, SpecError
 from worldstate_check.models import CheckStatus, VerificationContext
-from worldstate_check.util import compare_value, extract_dotted, freshness_age_seconds, resolve_path
+from worldstate_check.util import (
+    compare_value,
+    evidence_path,
+    extract_dotted,
+    freshness_age_seconds,
+    read_text_limited,
+    resolve_path,
+    strict_json_loads,
+)
 
 from .base import timed_result, unknown
+
+DEFAULT_MAX_TELEMETRY_BYTES = 16 * 1024 * 1024
 
 
 def run_metric_check(check: dict[str, Any], ctx: VerificationContext):
@@ -20,18 +32,18 @@ def run_metric_check(check: dict[str, Any], ctx: VerificationContext):
         return unknown(check, str(exc))
 
     def evaluate():
-        evidence: dict[str, Any] = {"path": str(path), "source_type": source["type"]}
+        evidence: dict[str, Any] = {"path": evidence_path(path, ctx.root), "source_type": source["type"]}
         try:
             observed, timestamp_value = _read_source(path, source)
         except FileNotFoundError:
             return CheckStatus.FAIL, "telemetry source does not exist", None, None, evidence, None
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError, csv.Error, KeyError, ValueError) as exc:
+        except (OSError, UnicodeDecodeError, csv.Error, KeyError, ValueError) as exc:
             return CheckStatus.UNKNOWN, "could not read telemetry evidence", None, None, evidence, str(exc)
 
         if "max_age_seconds" in source:
             try:
                 age = freshness_age_seconds(timestamp_value, datetime.now(timezone.utc))
-            except (ValueError, OSError) as exc:
+            except (ValueError, OSError, OverflowError) as exc:
                 return CheckStatus.UNKNOWN, "could not evaluate telemetry freshness", None, observed, evidence, str(exc)
             evidence["age_seconds"] = round(age, 3)
             evidence["max_age_seconds"] = source["max_age_seconds"]
@@ -56,18 +68,25 @@ def run_metric_check(check: dict[str, Any], ctx: VerificationContext):
     return timed_result(check, evaluate)
 
 
-def _read_source(path, source: dict[str, Any]) -> tuple[Any, Any]:
+def _read_source(path: Path, source: dict[str, Any]) -> tuple[Any, Any]:
+    raw = read_text_limited(path, int(source.get("max_read_bytes", DEFAULT_MAX_TELEMETRY_BYTES)))
     if source["type"] == "json":
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = strict_json_loads(raw)
         observed = extract_dotted(data, source["field"])
         timestamp = extract_dotted(data, source["timestamp_field"]) if "max_age_seconds" in source else None
         return observed, timestamp
 
-    with path.open("r", encoding="utf-8", newline="") as handle:
-        rows = list(csv.DictReader(handle))
-    if not rows:
+    reader = csv.DictReader(io.StringIO(raw.lstrip("\ufeff")))
+    if reader.fieldnames is None:
+        raise ValueError("CSV telemetry source has no header")
+    if len(reader.fieldnames) != len(set(reader.fieldnames)):
+        raise ValueError("CSV telemetry source has duplicate column names")
+    row: dict[str, str | None] | None = None
+    for row in reader:
+        if None in row:
+            raise ValueError("CSV telemetry row has more values than the header")
+    if row is None:
         raise ValueError("CSV telemetry source has no data rows")
-    row = rows[-1]
     if source["column"] not in row:
         raise KeyError(source["column"])
     observed = _coerce_scalar(row[source["column"]])
@@ -75,7 +94,9 @@ def _read_source(path, source: dict[str, Any]) -> tuple[Any, Any]:
     return observed, timestamp
 
 
-def _coerce_scalar(value: str) -> Any:
+def _coerce_scalar(value: str | None) -> Any:
+    if value is None:
+        raise ValueError("CSV telemetry value is missing")
     stripped = value.strip()
     lowered = stripped.lower()
     if lowered == "true":
@@ -84,7 +105,10 @@ def _coerce_scalar(value: str) -> Any:
         return False
     try:
         if any(c in stripped for c in ".eE"):
-            return float(stripped)
+            value_float = float(stripped)
+            if not math.isfinite(value_float):
+                return stripped
+            return value_float
         return int(stripped)
     except ValueError:
         return stripped

@@ -43,6 +43,7 @@ class VerificationContext:
     root: Path
     allow_outside_root: bool = False
     allow_command: bool = False
+    allow_network: bool = False
 
 
 @dataclass(frozen=True)

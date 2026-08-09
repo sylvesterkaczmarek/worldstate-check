@@ -59,3 +59,10 @@ def test_demo_verified_exit_code():
 
 def test_demo_partial_exit_code():
     assert main(["demo", "--scenario", "partial"]) == 1
+
+
+def test_report_verifier_rejects_non_object_without_crashing(tmp_path):
+    path = tmp_path / "r.json"
+    path.write_text("[]", encoding="utf-8")
+    assert verify_json_report(path) is False
+    assert main(["verify-report", str(path)]) == 1

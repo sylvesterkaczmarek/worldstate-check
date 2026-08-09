@@ -1,6 +1,6 @@
 # Specification
 
-A specification is YAML with `version`, `task`, and a non-empty `checks` list.
+A specification is YAML with `version`, `task`, and a non-empty `checks` list. Duplicate YAML keys are rejected. Values must remain JSON-compatible so that evidence reports are always serializable.
 
 ```yaml
 version: 1
@@ -26,6 +26,8 @@ Each check is required by default. Set `required: false` for evidence that shoul
 
 Assertions: `exists`, `contains`, `not_contains`, `sha256`.
 
+Text assertions read at most 1 MiB by default. Set `max_read_bytes` to an explicit positive integer when a different limit is required.
+
 ## JSON
 
 ```yaml
@@ -41,9 +43,13 @@ Nested fields use dot notation. Numeric list indexes are supported, for example 
 
 Operators: `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `between`, `in`.
 
+`lt`, `lte`, `gt`, `gte`, and `between` require finite numeric thresholds. `between` requires `min <= max`. `tolerance` is supported only with `eq` or `ne` and requires a numeric expected value.
+
+JSON evidence is limited to 1 MiB by default. Use `max_read_bytes` to change the limit.
+
 ## Metric
 
-Metrics read the latest state from JSON or the final row of a CSV file.
+Metrics read the current value from JSON or the final row of a CSV file.
 
 ```yaml
 - id: attitude-error
@@ -80,9 +86,13 @@ source:
   max_age_seconds: 5
 ```
 
-ISO-8601 UTC strings and Unix epoch timestamps are accepted.
+ISO-8601 UTC strings and Unix epoch timestamps are accepted. A timestamp more than one second in the future produces `UNKNOWN` rather than being treated as fresh.
+
+Telemetry sources are limited to 16 MiB by default. Set `source.max_read_bytes` when a different explicit bound is required.
 
 ## HTTP
+
+HTTP checks are disabled unless `--allow-network` is supplied.
 
 ```yaml
 - id: service-health
@@ -94,9 +104,11 @@ ISO-8601 UTC strings and Unix epoch timestamps are accepted.
   value: ready
 ```
 
-HTTP checks use GET. They can assert `status`, `text_contains`, or a JSON field comparison.
+HTTP checks use GET. They can assert `status`, `text_contains`, or a JSON field comparison. Response bodies are capped at 1 MiB. URLs recorded in evidence reports omit credentials, query strings, and fragments.
 
 ## TCP
+
+TCP checks are also disabled unless `--allow-network` is supplied.
 
 ```yaml
 - id: service-port
@@ -117,4 +129,4 @@ Command checks are disabled unless `--allow-command` is supplied.
   exit_code: 0
 ```
 
-Commands are executed without a shell. Specifications must provide an argument vector rather than a shell command string.
+Commands are executed without a shell and with standard input disabled. Specifications must provide an argument vector rather than a shell command string. Captured output is bounded by `max_output_bytes`, which defaults to 65,536 bytes per stream. Raw argv and output are not copied into evidence reports; hashes and byte counts are recorded instead.

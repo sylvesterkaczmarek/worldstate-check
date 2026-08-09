@@ -33,6 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
     verify_parser.add_argument("--root", type=Path, help="verification root; defaults to the specification directory")
     verify_parser.add_argument("--allow-outside-root", action="store_true", help="allow file paths outside the verification root")
     verify_parser.add_argument("--allow-command", action="store_true", help="allow command checks in a trusted specification")
+    verify_parser.add_argument("--allow-network", action="store_true", help="allow HTTP and TCP checks in a trusted specification")
     verify_parser.add_argument("--wait", type=float, default=0.0, metavar="SECONDS", help="retry until verified or the timeout expires")
     verify_parser.add_argument("--poll-interval", type=float, default=0.5, metavar="SECONDS")
     verify_parser.add_argument("--report", type=Path, help="write a JSON evidence report")
@@ -77,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
     except SpecError as exc:
         print(f"SPEC ERROR: {exc}", file=sys.stderr)
         return 2
-    except ValueError as exc:
+    except (ValueError, OSError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     return 2
@@ -92,6 +93,7 @@ def _verify_command(args: argparse.Namespace) -> int:
         root=root,
         allow_outside_root=args.allow_outside_root,
         allow_command=args.allow_command,
+        allow_network=args.allow_network,
     )
     report = verify(spec, ctx, wait_seconds=args.wait, poll_interval=args.poll_interval)
     if args.report:

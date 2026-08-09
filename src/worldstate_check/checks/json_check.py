@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from worldstate_check.errors import PathBoundaryError, SpecError
 from worldstate_check.models import CheckStatus, VerificationContext
-from worldstate_check.util import compare_value, extract_dotted, resolve_path
+from worldstate_check.util import compare_value, evidence_path, extract_dotted, read_text_limited, resolve_path, strict_json_loads
 
 from .base import timed_result, unknown
 
@@ -17,12 +16,13 @@ def run_json_check(check: dict[str, Any], ctx: VerificationContext):
         return unknown(check, str(exc))
 
     def evaluate():
-        evidence = {"path": str(path), "field": check["field"]}
+        evidence = {"path": evidence_path(path, ctx.root), "field": check["field"]}
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
+            raw = read_text_limited(path, int(check.get("max_read_bytes", 1_048_576)))
+            data = strict_json_loads(raw)
         except FileNotFoundError:
             return CheckStatus.FAIL, "JSON file does not exist", None, None, evidence, None
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        except (OSError, UnicodeDecodeError, ValueError) as exc:
             return CheckStatus.UNKNOWN, "could not parse JSON evidence", None, None, evidence, str(exc)
         try:
             observed = extract_dotted(data, check["field"])

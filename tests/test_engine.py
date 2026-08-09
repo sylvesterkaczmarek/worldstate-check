@@ -38,3 +38,25 @@ def test_wait_retries_until_file_changes(tmp_path):
     thread.join()
     assert report.verdict is Verdict.VERIFIED
     assert report.attempts >= 2
+
+
+def test_verify_validates_programmatic_spec(tmp_path):
+    import pytest
+    from worldstate_check.errors import SpecError
+
+    bad = {"version": 1, "task": "x", "checks": [{"id": "f", "type": "file", "path": "x", "contains": 123}]}
+    ctx = VerificationContext(spec_path=tmp_path / "s", root=tmp_path)
+    with pytest.raises(SpecError):
+        verify(bad, ctx)
+
+
+def test_wait_rejects_non_finite_values(tmp_path):
+    import math
+    import pytest
+
+    spec = {"version": 1, "task": "x", "checks": [{"id": "f", "type": "file", "path": "x", "exists": False}]}
+    ctx = VerificationContext(spec_path=tmp_path / "s", root=tmp_path)
+    with pytest.raises(ValueError):
+        verify(spec, ctx, wait_seconds=math.nan)
+    with pytest.raises(ValueError):
+        verify(spec, ctx, poll_interval=math.inf)
