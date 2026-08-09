@@ -1,0 +1,36 @@
+version: 1
+task: pump-17-inspection
+checks:
+  - id: job-complete
+    type: json
+    path: data/maintenance-result.json
+    field: status
+    operator: eq
+    value: complete
+
+  - id: inspection-evidence
+    type: metric
+    source:
+      type: json
+      path: data/maintenance-result.json
+      field: inspection.image_count
+    operator: gte
+    value: 1
+
+  - id: temperature
+    type: metric
+    source:
+      type: json
+      path: data/maintenance-result.json
+      field: sensor.temperature_c
+    operator: lte
+    value: 75
+
+  - id: vibration
+    type: metric
+    source:
+      type: json
+      path: data/maintenance-result.json
+      field: sensor.vibration_rms
+    operator: lte
+    value: 2.5

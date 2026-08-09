@@ -1,0 +1,6 @@
+{
+  "mode": "SAFE",
+  "payload": {"power": "off"},
+  "attitude": {"error_deg": 14.7},
+  "battery": {"soc": 71.0}
+}

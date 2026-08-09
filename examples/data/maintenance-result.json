@@ -1,0 +1,6 @@
+{
+  "job": "pump-17-inspection",
+  "status": "complete",
+  "inspection": {"image_count": 4},
+  "sensor": {"temperature_c": 62.4, "vibration_rms": 1.7}
+}

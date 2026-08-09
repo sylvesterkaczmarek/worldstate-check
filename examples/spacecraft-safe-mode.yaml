@@ -1,0 +1,27 @@
+version: 1
+task: spacecraft-safe-mode
+checks:
+  - id: payload-off
+    type: json
+    path: data/spacecraft-telemetry.json
+    field: payload.power
+    operator: eq
+    value: "off"
+
+  - id: attitude-error
+    type: metric
+    source:
+      type: json
+      path: data/spacecraft-telemetry.json
+      field: attitude.error_deg
+    operator: lte
+    value: 3.0
+
+  - id: battery-reserve
+    type: metric
+    source:
+      type: json
+      path: data/spacecraft-telemetry.json
+      field: battery.soc
+    operator: gte
+    value: 25.0
