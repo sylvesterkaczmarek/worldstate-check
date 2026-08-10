@@ -3,6 +3,7 @@
 ![WorldState Check](assets/social/github-social-card-worldstate-check.png)
 
 [![CI](https://github.com/sylvesterkaczmarek/worldstate-check/actions/workflows/ci.yml/badge.svg)](https://github.com/sylvesterkaczmarek/worldstate-check/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/worldstate-check.svg)](https://pypi.org/project/worldstate-check/)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
@@ -74,10 +75,33 @@ Required checks produce one of three verdicts:
 
 ## Quick start
 
+For a standalone command-line installation, use pipx:
+
+```bash
+pipx install worldstate-check
+```
+
+Or install the package with pip:
+
+```bash
+python3 -m pip install worldstate-check
+```
+
+Then run:
+
+```bash
+worldstate-check --version
+worldstate-check demo
+```
+
+### Install from source
+
+If you prefer to install directly from the repository:
+
 ```bash
 git clone https://github.com/sylvesterkaczmarek/worldstate-check.git
 cd worldstate-check
-python -m pip install .
+python3 -m pip install .
 worldstate-check demo
 ```
 
@@ -231,7 +255,9 @@ See [docs/assurance-model.md](docs/assurance-model.md) for the exact scope.
 
 ```text
 worldstate-check/
-├── .github/workflows/ci.yml
+├── .github/workflows/
+│   ├── ci.yml
+│   └── release.yml
 ├── assets/social/
 ├── docs/
 ├── examples/
@@ -243,6 +269,7 @@ worldstate-check/
 │   ├── models.py
 │   └── report.py
 ├── tests/
+├── .release-version
 ├── CITATION.cff
 ├── LICENSE
 ├── Makefile
