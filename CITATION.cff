@@ -7,5 +7,6 @@ authors:
     given-names: Sylvester
 version: 0.1.2
 date-released: 2026-08-10
+repository-code: "https://github.com/sylvesterkaczmarek/worldstate-check"
 url: "https://github.com/sylvesterkaczmarek/worldstate-check"
 license: MIT
