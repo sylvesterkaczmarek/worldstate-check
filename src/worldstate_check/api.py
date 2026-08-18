@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from .engine import verify
 from .loader import load_spec
@@ -17,12 +18,39 @@ def verify_spec(
     wait_seconds: float = 0.0,
     poll_interval: float = 0.5,
 ) -> VerificationReport:
-    """Verify a WorldState Check specification using the same engine as the CLI."""
+    """Verify a WorldState Check specification file using the same engine as the CLI."""
     spec_path = Path(spec).resolve()
     specification = load_spec(spec_path)
     verification_root = Path(root).resolve() if root is not None else spec_path.parent
     context = VerificationContext(
         spec_path=spec_path,
+        root=verification_root,
+        allow_outside_root=allow_outside_root,
+        allow_command=allow_command,
+        allow_network=allow_network,
+    )
+    return verify(
+        specification,
+        context,
+        wait_seconds=wait_seconds,
+        poll_interval=poll_interval,
+    )
+
+
+def verify_spec_data(
+    specification: dict[str, Any],
+    *,
+    root: str | Path = ".",
+    allow_outside_root: bool = False,
+    allow_command: bool = False,
+    allow_network: bool = False,
+    wait_seconds: float = 0.0,
+    poll_interval: float = 0.5,
+) -> VerificationReport:
+    """Verify an in-memory specification dictionary without writing a YAML file."""
+    verification_root = Path(root).resolve()
+    context = VerificationContext(
+        spec_path=verification_root / ".worldstate-check-memory.yaml",
         root=verification_root,
         allow_outside_root=allow_outside_root,
         allow_command=allow_command,
