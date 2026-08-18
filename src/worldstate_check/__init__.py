@@ -2,7 +2,7 @@
 
 from importlib.metadata import PackageNotFoundError, version
 
-from .api import verify_spec
+from .api import verify_spec, verify_spec_data
 from .errors import SpecError
 from .models import VerificationReport, Verdict
 
@@ -16,4 +16,5 @@ __all__ = [
     "VerificationReport",
     "Verdict",
     "verify_spec",
+    "verify_spec_data",
 ]
