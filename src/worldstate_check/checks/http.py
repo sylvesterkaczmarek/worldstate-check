@@ -9,11 +9,12 @@ from worldstate_check.errors import SpecError
 from worldstate_check.models import CheckStatus, VerificationContext
 from worldstate_check.util import compare_value, extract_dotted
 
-from .base import timed_result
+from .base import timed_result, unknown
 
 
 def run_http_check(check: dict[str, Any], ctx: VerificationContext):
-    del ctx
+    if not ctx.allow_network:
+        return unknown(check, "network checks are disabled; pass --allow-network for a trusted specification")
 
     def evaluate():
         timeout = float(check.get("timeout_seconds", 3.0))
