@@ -73,10 +73,10 @@ def run_command_check(check: dict[str, Any], ctx: VerificationContext):
                 failures.append("required stderr text missing")
 
         evidence = {
-            "argv": check["argv"],
             "cwd": str(cwd),
-            "stdout_excerpt": stdout[-2000:],
-            "stderr_excerpt": stderr[-2000:],
+            "argv_count": len(check["argv"]),
+            "stdout_bytes": len(proc.stdout),
+            "stderr_bytes": len(proc.stderr),
         }
         if failures:
             return CheckStatus.FAIL, "; ".join(failures), expected, observed, evidence, None
