@@ -5,12 +5,11 @@ import json
 import sys
 from pathlib import Path
 
-from . import __version__
+from . import __version__, verify_spec
 from .demo import run_demo
-from .engine import verify
 from .errors import SpecError
 from .loader import load_spec
-from .models import VerificationContext, Verdict
+from .models import Verdict
 from .report import render_text, report_payload, verify_json_report, write_json_report
 
 EXIT_BY_VERDICT = {
@@ -85,17 +84,15 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _verify_command(args: argparse.Namespace) -> int:
-    spec_path = args.spec.resolve()
-    spec = load_spec(spec_path)
-    root = (args.root.resolve() if args.root else spec_path.parent)
-    ctx = VerificationContext(
-        spec_path=spec_path,
-        root=root,
+    report = verify_spec(
+        args.spec,
+        root=args.root,
         allow_outside_root=args.allow_outside_root,
         allow_command=args.allow_command,
         allow_network=args.allow_network,
+        wait_seconds=args.wait,
+        poll_interval=args.poll_interval,
     )
-    report = verify(spec, ctx, wait_seconds=args.wait, poll_interval=args.poll_interval)
     if args.report:
         write_json_report(report, args.report)
     if args.json:

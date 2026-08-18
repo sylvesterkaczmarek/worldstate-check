@@ -9,7 +9,7 @@
 
 **Verify that an autonomous action changed the world as intended.**
 
-WorldState Check evaluates explicit postconditions against independent observations after an AI agent, automation, robot, or autonomous system acts. It distinguishes a successful command from a verified outcome, uses deterministic verdict logic, and produces a structured evidence report without requiring an LLM judge.
+WorldState Check is a CLI-first deterministic postcondition verification tool for AI agents, automation, robots, and autonomous systems, with a small Python API for embedding the same verification engine in other software. It evaluates explicit postconditions against independent observations, distinguishes a successful command from a verified outcome, and produces a structured evidence report without requiring an LLM judge.
 
 ## At a glance
 
@@ -142,6 +142,20 @@ worldstate-check verify worldstate.yaml --report evidence.json
 worldstate-check verify-report evidence.json
 ```
 
+## Python API
+
+The CLI remains the primary interface. Applications can embed the same deterministic verification path with `verify_spec()`:
+
+```python
+from worldstate_check import Verdict, verify_spec
+
+report = verify_spec("worldstate.yaml")
+if report.verdict is Verdict.VERIFIED:
+    print("verified")
+```
+
+`verify_spec()` uses the same specification loader, verification context, safety defaults, and engine as `worldstate-check verify`. Command checks, network checks, and paths outside the verification root remain opt-in.
+
 ## Verification specification
 
 ```yaml
@@ -262,6 +276,7 @@ worldstate-check/
 ├── docs/
 ├── examples/
 ├── src/worldstate_check/
+│   ├── api.py
 │   ├── checks/
 │   ├── cli.py
 │   ├── engine.py
