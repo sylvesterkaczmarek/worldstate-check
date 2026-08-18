@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 from typing import Any
@@ -77,6 +78,8 @@ def run_command_check(check: dict[str, Any], ctx: VerificationContext):
             "argv_count": len(check["argv"]),
             "stdout_bytes": len(proc.stdout),
             "stderr_bytes": len(proc.stderr),
+            "stdout_sha256": hashlib.sha256(proc.stdout).hexdigest(),
+            "stderr_sha256": hashlib.sha256(proc.stderr).hexdigest(),
         }
         if failures:
             return CheckStatus.FAIL, "; ".join(failures), expected, observed, evidence, None
