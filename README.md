@@ -144,7 +144,9 @@ worldstate-check verify-report evidence.json
 
 ## Python API
 
-The CLI remains the primary interface. Applications can embed the same deterministic verification path with `verify_spec()`:
+The CLI remains the primary interface. Applications can embed the same deterministic verification path from either a specification file or an in-memory Python dictionary.
+
+File-based:
 
 ```python
 from worldstate_check import Verdict, verify_spec
@@ -154,7 +156,30 @@ if report.verdict is Verdict.VERIFIED:
     print("verified")
 ```
 
-`verify_spec()` uses the same specification loader, verification context, safety defaults, and engine as `worldstate-check verify`. Command checks, network checks, and paths outside the verification root remain opt-in.
+In-memory:
+
+```python
+from worldstate_check import verify_spec_data
+
+specification = {
+    "version": 1,
+    "task": "confirm-state",
+    "checks": [
+        {
+            "id": "state",
+            "type": "json",
+            "path": "state.json",
+            "field": "status",
+            "operator": "eq",
+            "value": "complete",
+        }
+    ],
+}
+
+report = verify_spec_data(specification, root="./evidence")
+```
+
+Both APIs use the same verification context, safety defaults, and deterministic engine as `worldstate-check verify`. Command checks, network checks, and paths outside the verification root remain opt-in. See [docs/python-api.md](docs/python-api.md) for additional embedding examples.
 
 ## Verification specification
 
