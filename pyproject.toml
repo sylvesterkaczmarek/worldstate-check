@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "worldstate-check"
 version = "0.1.2"
-description = "Deterministic postcondition verification for AI agents and autonomous systems."
+description = "CLI-first deterministic postcondition verification for AI agents and autonomous systems, with an embeddable Python API."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
