@@ -128,3 +128,33 @@ def test_public_api_keeps_command_checks_opt_in(tmp_path):
 
     assert report.verdict is Verdict.UNCERTAIN
     assert report.results[0].status.value == "UNKNOWN"
+
+
+def test_public_api_keeps_outside_root_paths_opt_in(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    (tmp_path / "outside.txt").write_text("READY\n", encoding="utf-8")
+
+    specification = {
+        "version": 1,
+        "task": "outside-root-boundary",
+        "checks": [
+            {
+                "id": "outside",
+                "type": "file",
+                "path": "../outside.txt",
+                "exists": True,
+            }
+        ],
+    }
+
+    blocked = verify_spec_data(specification, root=root)
+    assert blocked.verdict is Verdict.UNCERTAIN
+    assert blocked.results[0].status.value == "UNKNOWN"
+
+    allowed = verify_spec_data(
+        specification,
+        root=root,
+        allow_outside_root=True,
+    )
+    assert allowed.verdict is Verdict.VERIFIED
