@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 from datetime import datetime, timezone
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -130,9 +131,11 @@ def compare_value(observed: Any, operator: str, spec: dict[str, Any]) -> tuple[b
         expected = spec.get("value")
         tolerance = spec.get("tolerance")
         if tolerance is not None:
-            if not _is_number(observed) or not _is_number(expected) or not _is_number(tolerance) or float(tolerance) < 0:
+            if not _is_number(observed) or not _is_number(expected) or not _is_number(tolerance) or tolerance < 0:
                 raise ValueError("tolerance comparison requires finite numeric observed, value, and tolerance")
-            matched = math.isclose(float(observed), float(expected), abs_tol=float(tolerance), rel_tol=0.0)
+            # Preserve integers and the exact represented value of each float.
+            # Native subtraction can round mixed operands or overflow two floats.
+            matched = abs(Fraction(observed) - Fraction(expected)) <= Fraction(tolerance)
         else:
             matched = _json_semantic_equal(observed, expected)
         return (matched if operator == "eq" else not matched), expected
@@ -141,13 +144,11 @@ def compare_value(observed: Any, operator: str, spec: dict[str, Any]) -> tuple[b
         expected = spec.get("value")
         if not _is_number(observed) or not _is_number(expected):
             raise ValueError("numeric comparison requires numeric observed and expected values")
-        a = float(observed)
-        b = float(expected)
         funcs = {
-            "lt": lambda: a < b,
-            "lte": lambda: a <= b,
-            "gt": lambda: a > b,
-            "gte": lambda: a >= b,
+            "lt": lambda: observed < expected,
+            "lte": lambda: observed <= expected,
+            "gt": lambda: observed > expected,
+            "gte": lambda: observed >= expected,
         }
         return funcs[operator](), expected
 
@@ -156,9 +157,9 @@ def compare_value(observed: Any, operator: str, spec: dict[str, Any]) -> tuple[b
         high = spec.get("max")
         if not all(_is_number(v) for v in (observed, low, high)):
             raise ValueError("between comparison requires numeric observed, min, and max values")
-        if float(low) > float(high):
+        if low > high:
             raise SpecError("between comparison requires min <= max")
-        return float(low) <= float(observed) <= float(high), {"min": low, "max": high}
+        return low <= observed <= high, {"min": low, "max": high}
 
     if operator == "in":
         values = spec.get("values")
@@ -206,7 +207,7 @@ def _json_semantic_equal(left: Any, right: Any) -> bool:
     if isinstance(left, bool) or isinstance(right, bool):
         return isinstance(left, bool) and isinstance(right, bool) and left is right
     if _is_number(left) and _is_number(right):
-        return float(left) == float(right)
+        return left == right
     if left is None or right is None:
         return left is None and right is None
     if isinstance(left, str) or isinstance(right, str):
@@ -229,9 +230,6 @@ def _json_semantic_equal(left: Any, right: Any) -> bool:
 
 
 def _is_number(value: Any) -> bool:
-    if not isinstance(value, (int, float)) or isinstance(value, bool):
+    if isinstance(value, bool):
         return False
-    try:
-        return math.isfinite(float(value))
-    except (OverflowError, ValueError):
-        return False
+    return isinstance(value, int) or (isinstance(value, float) and math.isfinite(value))

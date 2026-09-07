@@ -45,6 +45,10 @@ Operators: `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `between`, `in`.
 
 `lt`, `lte`, `gt`, `gte`, and `between` require finite numeric thresholds. `between` requires `min <= max`. `tolerance` is supported only with `eq` or `ne` and requires a numeric expected value.
 
+Integer comparisons preserve precision, including values above `2**53`, in ranges, membership checks, and nested JSON values. Mixed integer/float comparisons compare the represented values without rounding integers to floats. Booleans remain distinct from numbers. Floating-point inputs retain their parsed binary floating-point values; they are not exact decimal quantities.
+
+`tolerance` is an inclusive absolute bound: `abs(observed - value) <= tolerance`. The difference is evaluated without additional floating-point rounding or overflow. For example, adjacent integers differ by one even above `2**53`, so `tolerance: 0` cannot make them equal. Numeric operands can include integers beyond the floating-point range, subject to the existing input-size and parser limits; operational settings such as timeouts still require a finite floating-point representation.
+
 JSON evidence is limited to 1 MiB by default. Use `max_read_bytes` to change the limit.
 
 ## Metric
@@ -105,6 +109,8 @@ HTTP checks are disabled unless `--allow-network` is supplied.
 ```
 
 HTTP checks use GET. They can assert `status`, `text_contains`, or a JSON field comparison. Response bodies are capped at 1 MiB. URLs recorded in evidence reports omit credentials, query strings, and fragments.
+
+JSON assertions require valid UTF-8 and reject duplicate object keys, non-standard numeric constants, and numbers that overflow to infinity, consistently with JSON file and telemetry evidence. Invalid or ambiguous JSON produces `UNKNOWN` unless another assertion in that check has already failed, in which case the result remains `FAIL`. Status-only checks do not require JSON, and text-only assertions retain UTF-8 replacement decoding.
 
 ## TCP
 
