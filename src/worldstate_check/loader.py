@@ -11,7 +11,7 @@ import yaml
 from yaml.constructor import ConstructorError
 
 from .errors import SpecError
-from .util import read_text_limited
+from .util import _is_number, read_text_limited
 
 MAX_SPEC_BYTES = 1_048_576
 SUPPORTED_TYPES = {"file", "json", "metric", "http", "tcp", "command"}
@@ -170,6 +170,7 @@ def _require_str(check: dict[str, Any], key: str, prefix: str) -> None:
 
 
 def _is_finite_number(value: Any) -> bool:
+    """Require a finite float-compatible value for operational time limits."""
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         return False
     try:
@@ -194,14 +195,14 @@ def _validate_operator(check: dict[str, Any], prefix: str, required: bool = True
         raise SpecError(f"{prefix}.operator is invalid")
     if op in {"eq", "ne", "lt", "lte", "gt", "gte"} and "value" not in check:
         raise SpecError(f"{prefix}.value is required for operator {op}")
-    if op in {"lt", "lte", "gt", "gte"} and not _is_finite_number(check.get("value")):
+    if op in {"lt", "lte", "gt", "gte"} and not _is_number(check.get("value")):
         raise SpecError(f"{prefix}.value must be a finite number for operator {op}")
     if op == "between":
         if "min" not in check or "max" not in check:
             raise SpecError(f"{prefix}.min and {prefix}.max are required for operator between")
-        if not _is_finite_number(check["min"]) or not _is_finite_number(check["max"]):
+        if not _is_number(check["min"]) or not _is_number(check["max"]):
             raise SpecError(f"{prefix}.min and {prefix}.max must be finite numbers")
-        if float(check["min"]) > float(check["max"]):
+        if check["min"] > check["max"]:
             raise SpecError(f"{prefix}.min must not exceed {prefix}.max")
     if op == "in":
         values = check.get("values")
@@ -210,9 +211,9 @@ def _validate_operator(check: dict[str, Any], prefix: str, required: bool = True
     if "tolerance" in check:
         if op not in {"eq", "ne"}:
             raise SpecError(f"{prefix}.tolerance is only valid with eq or ne")
-        if not _is_finite_number(check["tolerance"]) or float(check["tolerance"]) < 0:
+        if not _is_number(check["tolerance"]) or check["tolerance"] < 0:
             raise SpecError(f"{prefix}.tolerance must be a finite non-negative number")
-        if not _is_finite_number(check.get("value")):
+        if not _is_number(check.get("value")):
             raise SpecError(f"{prefix}.value must be numeric when tolerance is used")
 
 

@@ -11,10 +11,12 @@ A verification specification can direct WorldState Check to read local evidence 
 - Commands use an argument vector with `shell=False` and receive a minimal environment.
 - Raw command arguments and command output are not copied into evidence reports. Reports record the executable, argument count, byte counts, and output hashes.
 - HTTP report evidence removes URL credentials, query strings, and fragments.
+- HTTP transport errors report an error category instead of copying exception messages that may contain a request or redirect URL. The actual request URL is unchanged.
 - Specifications are limited to 1 MiB.
 - HTTP response bodies and JSON evidence are capped at 1 MiB by default.
 - File text assertions are capped at 1 MiB by default.
 - Telemetry JSON and CSV inputs are capped at 16 MiB by default. `max_read_bytes` can set a smaller or larger explicit limit.
 - YAML duplicate keys and non-JSON-compatible YAML scalar types are rejected.
+- HTTP JSON assertions, JSON files, and JSON telemetry reject duplicate keys and non-finite numbers. HTTP JSON assertions also require valid UTF-8.
 
 These controls reduce accidental exposure and make reports safer to share. They do not make an untrusted specification safe to execute with `--allow-command`, `--allow-network`, or `--allow-outside-root`.
