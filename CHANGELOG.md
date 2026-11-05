@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0
+
+5 November 2026. Verified observation and evidence integrity release.
+
+- Reject incomplete or ambiguously framed HTTP responses before assertions can pass.
+- Preserve known telemetry threshold and freshness failures when the other assertion is inconclusive.
+- Reject saved PASS results with unresolved errors and regular-file reads shorter than their recorded size.
+- Add 49 separate release-review cases and eight public-download verifier controls.
+- Gate publication on full exact-commit CI, isolated package tests and verified public downloads.
+- Preserve the original examples and document migration and remaining assurance boundaries.
+
 ## 0.2.0rc1
 
 Unpublished reliability candidate prepared on 5 November 2026.

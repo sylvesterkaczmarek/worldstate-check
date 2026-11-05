@@ -9,7 +9,10 @@ from pathlib import Path
 import subprocess
 import tarfile
 import tempfile
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:  # Build/review helper only; not a runtime dependency.
+    import tomli as tomllib
 import venv
 import zipfile
 

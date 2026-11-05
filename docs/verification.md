@@ -52,3 +52,12 @@ Check the published artifacts only in the separate release pass.
 A successful report verifier checks internal structure and its unkeyed checksum.
 It cannot establish authenticity, truthfulness of a source or a current world state.
 See audit-2026-11-05.md for all compatibility changes and assurance limits.
+
+## Release verification
+
+The independent review and migration notes describe release-specific changes.
+Public package verification compares registry metadata, exact filenames and hashes
+with the tested build, downloads those files, installs them in a fresh environment,
+and repeats the complete suite, showcase and shipped examples. Python 3.10 requires
+tomli for the standalone build-verification script only; the installed runtime
+still depends only on PyYAML. GitHub release downloads are checked separately.

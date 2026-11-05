@@ -5,3 +5,4 @@ recursive-include tests *.py
 recursive-include scripts *.py
 recursive-include assets *.png
 recursive-include .github/workflows *.yml
+recursive-include verification *.json
