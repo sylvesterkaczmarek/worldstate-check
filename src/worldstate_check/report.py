@@ -62,6 +62,8 @@ def validate_report_data(data):
                 or (row['error'] is not None and not isinstance(row['error'], str))
                 or not _finite_nonnegative(row['duration_ms'])):
             raise ValueError('invalid check metadata')
+        if row['status'] == 'PASS' and row['error'] is not None:
+            raise ValueError('passing result contains an unresolved error')
         if row['required']: required_statuses.append(row['status'])
     if not required_statuses:
         raise ValueError('report must contain a required result')

@@ -67,6 +67,8 @@ def read_regular_bytes(path: Path, limit: int) -> tuple[bytes, os.stat_result]:
             raw = handle.read(limit + 1)
             after = os.fstat(handle.fileno())
             current = _stat(name, directory)
+        if len(raw) != after.st_size:
+            raise ValueError('evidence read length does not match its observed size')
         if len(raw) > limit:
             raise ValueError(f'evidence exceeds configured read limit ({limit} bytes)')
         def identity(info):
