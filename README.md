@@ -11,6 +11,24 @@
 
 WorldState Check is a CLI-first deterministic postcondition verification tool for AI agents, automation, robots, and autonomous systems, with a small Python API for embedding the same verification engine in other software. It evaluates explicit postconditions against independent observations, distinguishes a successful command from a verified outcome, and produces a structured evidence report without requiring an LLM judge.
 
+## November reliability candidate
+
+Version **0.2.0rc1** is an unpublished candidate for separate review. Local file,
+JSON and telemetry checks now share one bounded observation per source and attempt,
+so incompatible versions cannot jointly establish success. Reports record the
+normalized specification hash and source fingerprints. Input protection, command
+capture and saved-report validation are strengthened.
+
+Run the [eight-case offline demonstration](docs/verification.md) from an installed
+source checkout:
+
+```bash
+python scripts/showcase.py --out /tmp/worldstate-showcase-new
+```
+
+See the [audit and compatibility record](docs/audit-2026-11-05.md). No merge or
+publication is part of this implementation pass.
+
 ## At a glance
 
 ```text
@@ -215,6 +233,17 @@ checks:
 ```
 
 See [docs/specification.md](docs/specification.md) for all supported checks.
+
+## Observation consistency
+
+Checks reading the same resolved local file within one attempt share its captured
+bytes. Later retries reacquire evidence. This is per-source consistency, without
+an atomic snapshot across different sources or a guarantee about state after the
+observation. Command/network operations remain opt-in.
+
+The saved report verifier checks schema, required counts, verdict consistency and
+SHA-256. Its checksum provides no source authentication or protection against an
+attacker who can replace the report and recompute it.
 
 ## Telemetry freshness
 
