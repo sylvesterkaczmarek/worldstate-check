@@ -30,6 +30,8 @@ def run_http_check(check: dict[str, Any], ctx: VerificationContext):
             with closing(response):
                 status = response.status
                 body_bytes = response.read(1_048_577)
+        except OverflowError:
+            return CheckStatus.UNKNOWN, "HTTP timeout is unsupported by this runtime", None, None, evidence, "OverflowError"
         except (urllib.error.URLError, TimeoutError, OSError, HTTPException, ValueError) as exc:
             # Transport messages may contain the request URL or a redirect URL,
             # including credentials. Retain the failure class without that text.

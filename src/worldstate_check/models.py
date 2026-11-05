@@ -44,6 +44,12 @@ class VerificationContext:
     allow_outside_root: bool = False
     allow_command: bool = False
     allow_network: bool = False
+    _session: Any = field(default=None, repr=False, compare=False)
+
+    def __post_init__(self):
+        for name in ('allow_outside_root', 'allow_command', 'allow_network'):
+            if type(getattr(self, name)) is not bool:
+                raise ValueError(f'{name} must be a boolean; permission requires explicit True')
 
 
 @dataclass(frozen=True)
@@ -56,6 +62,7 @@ class VerificationReport:
     duration_ms: float
     attempts: int
     results: list[CheckResult]
+    specification_sha256: str | None = None
 
     @property
     def required_passed(self) -> int:
@@ -77,4 +84,5 @@ class VerificationReport:
             "required_passed": self.required_passed,
             "required_total": self.required_total,
             "results": [r.to_dict() for r in self.results],
+            "specification_sha256": self.specification_sha256,
         }

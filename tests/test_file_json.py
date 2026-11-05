@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 from worldstate_check.checks.file import run_file_check
 from worldstate_check.checks.json_check import run_json_check

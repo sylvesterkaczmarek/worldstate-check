@@ -19,9 +19,12 @@ def run_tcp_check(check: dict[str, Any], ctx: VerificationContext):
         try:
             with socket.create_connection((check["host"], check["port"]), timeout=timeout):
                 reachable = True
-        except OSError as exc:
+        except ConnectionRefusedError as exc:
             reachable = False
-            evidence["connection_error"] = exc.__class__.__name__
+            evidence["connection_error"] = type(exc).__name__
+        except (OSError, OverflowError, ValueError) as exc:
+            evidence["connection_error"] = type(exc).__name__
+            return CheckStatus.UNKNOWN, "TCP reachability could not be established", expected, None, evidence, type(exc).__name__
         status = CheckStatus.PASS if reachable == expected else CheckStatus.FAIL
         summary = "TCP postcondition satisfied" if status is CheckStatus.PASS else "TCP postcondition not satisfied"
         return status, summary, expected, reachable, evidence, None

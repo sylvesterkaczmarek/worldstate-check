@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from typing import Any, Callable
 
-from worldstate_check.models import CheckResult, CheckStatus, VerificationContext
+from worldstate_check.models import CheckResult, CheckStatus
 
 
 def timed_result(

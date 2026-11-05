@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-import subprocess
 from typing import Any
 
 from worldstate_check.errors import PathBoundaryError
@@ -10,6 +9,7 @@ from worldstate_check.models import CheckStatus, VerificationContext
 from worldstate_check.util import resolve_path
 
 from .base import timed_result, unknown
+from worldstate_check.processes import run_bounded
 
 
 def run_command_check(check: dict[str, Any], ctx: VerificationContext):
@@ -24,33 +24,21 @@ def run_command_check(check: dict[str, Any], ctx: VerificationContext):
         max_bytes = check.get("max_output_bytes", 65_536)
         timeout = float(check.get("timeout_seconds", 10.0))
         env = {"PATH": os.environ.get("PATH", ""), "HOME": os.environ.get("HOME", "")}
+        # Preserve essential Windows process environment without inheriting credentials.
+        for name in ('SystemRoot', 'WINDIR', 'COMSPEC', 'PATHEXT', 'TEMP', 'TMP'):
+            if os.name == 'nt' and name in os.environ:
+                env[name] = os.environ[name]
         try:
-            proc = subprocess.run(
-                check["argv"],
-                cwd=cwd,
-                env=env,
-                capture_output=True,
-                text=False,
-                shell=False,
-                timeout=timeout,
-                check=False,
-            )
-        except subprocess.TimeoutExpired:
-            return CheckStatus.FAIL, "verification command timed out", {"timeout_seconds": timeout}, None, {"cwd": str(cwd)}, None
+            proc = run_bounded(check['argv'], cwd=cwd, env=env, timeout=timeout, max_bytes=max_bytes)
         except (OSError, ValueError) as exc:
-            return CheckStatus.UNKNOWN, "verification command could not be started", None, None, {"cwd": str(cwd)}, str(exc)
-
-        stdout_bytes = proc.stdout[: max_bytes + 1]
-        stderr_bytes = proc.stderr[: max_bytes + 1]
-        if len(stdout_bytes) > max_bytes or len(stderr_bytes) > max_bytes:
-            return (
-                CheckStatus.UNKNOWN,
-                "verification command output exceeds configured evidence limit",
-                None,
-                {"exit_code": proc.returncode},
-                {"cwd": str(cwd), "max_output_bytes": max_bytes},
-                None,
-            )
+            return CheckStatus.UNKNOWN, "verification command could not be started", None, None, {"cwd": str(cwd)}, type(exc).__name__
+        if proc.timed_out:
+            return CheckStatus.FAIL, "verification command timed out", {"timeout_seconds": timeout}, None, {"cwd": str(cwd)}, None
+        if proc.output_limited:
+            return CheckStatus.UNKNOWN, "verification command output exceeds configured evidence limit", None, None, {
+                "cwd": str(cwd), "max_output_bytes": max_bytes, "stdout_bytes": proc.stdout_bytes,
+                "stderr_bytes": proc.stderr_bytes, "output_limited": True}, None
+        stdout_bytes, stderr_bytes = proc.stdout, proc.stderr
         stdout = stdout_bytes.decode("utf-8", errors="replace")
         stderr = stderr_bytes.decode("utf-8", errors="replace")
         expected: dict[str, Any] = {}

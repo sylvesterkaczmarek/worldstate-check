@@ -5,12 +5,13 @@ import json
 import sys
 from pathlib import Path
 
-from . import __version__, verify_spec
+from . import __version__, verify_spec_data
 from .demo import run_demo
 from .errors import SpecError
 from .loader import load_spec
 from .models import Verdict
-from .report import render_text, report_payload, verify_json_report, write_json_report
+from .report import render_text, report_payload, verify_json_report, write_json_report, validate_report_destination, safe_text
+from .observations import local_input
 
 EXIT_BY_VERDICT = {
     Verdict.VERIFIED: 0,
@@ -75,18 +76,28 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "verify":
             return _verify_command(args)
     except SpecError as exc:
-        print(f"SPEC ERROR: {exc}", file=sys.stderr)
+        print(f"SPEC ERROR: {safe_text(exc)}", file=sys.stderr)
         return 2
     except (ValueError, OSError, RuntimeError) as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        print(f"ERROR: {safe_text(exc)}", file=sys.stderr)
         return 2
     return 2
 
 
 def _verify_command(args: argparse.Namespace) -> int:
-    report = verify_spec(
-        args.spec,
-        root=args.root,
+    specification = load_spec(args.spec)
+    root = args.root.resolve() if args.root is not None else args.spec.resolve().parent
+    protected = [args.spec]
+    for check in specification['checks']:
+        item = local_input(check)
+        if item is not None:
+            source = Path(item[0]).expanduser()
+            protected.append(source if source.is_absolute() else root / source)
+    if args.report:
+        validate_report_destination(args.report, protected)
+    report = verify_spec_data(
+        specification,
+        root=root,
         allow_outside_root=args.allow_outside_root,
         allow_command=args.allow_command,
         allow_network=args.allow_network,
@@ -94,7 +105,7 @@ def _verify_command(args: argparse.Namespace) -> int:
         poll_interval=args.poll_interval,
     )
     if args.report:
-        write_json_report(report, args.report)
+        write_json_report(report, args.report, protected=protected)
     if args.json:
         print(json.dumps(report_payload(report), indent=2, sort_keys=True))
     else:
@@ -109,10 +120,10 @@ def _init_spec(path: Path) -> int:
         print(f"ERROR: refusing to overwrite existing file: {path}", file=sys.stderr)
         return 2
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
+    with path.open("x", encoding="utf-8") as handle:
+        handle.write(
         """version: 1\ntask: verify-outcome\nchecks:\n  - id: result-file\n    type: file\n    path: result.json\n    exists: true\n\n  - id: result-state\n    type: json\n    path: result.json\n    field: status\n    operator: eq\n    value: complete\n""",
-        encoding="utf-8",
-    )
+        )
     print(f"Created {path}")
     return 0
 
