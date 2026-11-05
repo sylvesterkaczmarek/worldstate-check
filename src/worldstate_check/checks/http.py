@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import re
 import urllib.error
 import urllib.request
 from contextlib import closing
-from http.client import HTTPException
+from http.client import HTTPException, IncompleteRead
 from typing import Any
 
 from worldstate_check.errors import SpecError
@@ -12,6 +13,40 @@ from worldstate_check.util import compare_value, extract_dotted, redact_url_for_
 
 from .base import timed_result, unknown
 
+
+
+def _declared_body_length(response):
+    """Validate HTTP/1.1 framing before partial bytes can satisfy an assertion.
+
+    RFC 9112 sections 6.3 and 8 require incomplete length-delimited messages to
+    be treated as incomplete. read(amt) alone does not enforce that condition.
+    """
+    if response.status in (204, 304) or 100 <= response.status < 200:
+        return 0
+    headers = getattr(response, 'headers', None)
+    if headers is None:
+        return None
+    def values(name):
+        if hasattr(headers, 'get_all'):
+            return headers.get_all(name, [])
+        return [value for key, value in headers.items() if key.lower() == name.lower()]
+    lengths = values('Content-Length')
+    encodings = values('Transfer-Encoding')
+    if encodings:
+        codes = [part.strip().lower() for value in encodings for part in value.split(',')]
+        if lengths or codes != ['chunked']:
+            raise ValueError('ambiguous or unsupported HTTP transfer framing')
+        # http.client verifies chunk boundaries and the terminating chunk.
+        return None
+    if not lengths:
+        return None  # Connection-close delimited response.
+    tokens = [part.strip() for value in lengths for part in value.split(',')]
+    if any(re.fullmatch(r'[0-9]+', token) is None for token in tokens):
+        raise ValueError('invalid HTTP content length')
+    values = [int(token) for token in tokens]
+    if len(set(values)) != 1:
+        raise ValueError('conflicting HTTP content lengths')
+    return values[0]
 
 def run_http_check(check: dict[str, Any], ctx: VerificationContext):
     if not ctx.allow_network:
@@ -29,7 +64,12 @@ def run_http_check(check: dict[str, Any], ctx: VerificationContext):
                 response = exc
             with closing(response):
                 status = response.status
+                declared_length = _declared_body_length(response)
                 body_bytes = response.read(1_048_577)
+                if declared_length is not None and len(body_bytes) < min(declared_length, 1_048_577):
+                    raise IncompleteRead(body_bytes, declared_length - len(body_bytes))
+        except OverflowError:
+            return CheckStatus.UNKNOWN, "HTTP timeout is unsupported by this runtime", None, None, evidence, "OverflowError"
         except (urllib.error.URLError, TimeoutError, OSError, HTTPException, ValueError) as exc:
             # Transport messages may contain the request URL or a redirect URL,
             # including credentials. Retain the failure class without that text.

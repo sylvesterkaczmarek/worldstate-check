@@ -72,3 +72,14 @@ report = verify_spec(
 ```
 
 The Python API uses the same deterministic engine and safety boundaries as the CLI. `verify_spec()` and `verify_spec_data()` both return `VerificationReport`.
+## Candidate integrity behaviour
+
+The 0.2.0rc1 candidate retains the public function signatures. Permission flags
+must be actual booleans. The engine evaluates its own validated copy of an
+in-memory specification and shares local-source observations only within one
+attempt. The returned report adds specification_sha256. Normal reports remain
+serializable, and the saved-report verifier recomputes counts and verdict.
+
+When using the lower-level report writer, embeddings can supply protected input
+paths through its protected keyword. The CLI derives these from the specification
+automatically. The checksum is not authentication or proof of source truthfulness.

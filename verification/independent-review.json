@@ -1,0 +1,21 @@
+{
+  "candidate": "8073f25947bff6798a0e9ee1058de64721447753",
+  "version": "0.2.0",
+  "candidate_baseline_tests": 232,
+  "first_independent_cases": 40,
+  "initial_passed": 23,
+  "initial_failed": 17,
+  "finding_groups": 4,
+  "extended_independent_cases": 49,
+  "extended_metric_failures": 2,
+  "all_independent_cases_passed_after_repair": 49,
+  "original_implementation_probes_reproduced": 27,
+  "original_implementation_probes_passed_after_repair": 27,
+  "public_download_verifier_tests": 8,
+  "full_suite": 289,
+  "scope": "synthetic local and owned loopback tests; not external certification",
+  "full_independent_suite_candidate_failed": 20,
+  "full_independent_suite_candidate_passed": 29,
+  "original_probe_sha256": "fbfb426432c9dce047c6b2d46324a2361149d66aaef1f274aa11603eab992041",
+  "extended_framing_redaction_failure": 1
+}

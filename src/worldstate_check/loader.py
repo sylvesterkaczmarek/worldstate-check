@@ -11,7 +11,8 @@ import yaml
 from yaml.constructor import ConstructorError
 
 from .errors import SpecError
-from .util import _is_number, read_text_limited
+from .util import _is_number, read_text_limited, validate_json_tree
+from .safe_io import MAX_READ_BYTES
 
 MAX_SPEC_BYTES = 1_048_576
 SUPPORTED_TYPES = {"file", "json", "metric", "http", "tcp", "command"}
@@ -79,7 +80,7 @@ def load_spec(path: Path) -> dict[str, Any]:
         raise SpecError(f"cannot read specification: {exc}") from exc
     try:
         data = yaml.load(raw, Loader=_UniqueKeySafeLoader)
-    except yaml.YAMLError as exc:
+    except (yaml.YAMLError, RecursionError, UnicodeError) as exc:
         raise SpecError(f"invalid YAML: {exc}") from exc
     validate_spec(data)
     return data
@@ -125,7 +126,7 @@ def _validate_check(check: Any, index: int, seen: set[str]) -> None:
         raise SpecError(f"duplicate check id: {check_id}")
     seen.add(check_id)
     check_type = check.get("type")
-    if check_type not in SUPPORTED_TYPES:
+    if not isinstance(check_type, str) or check_type not in SUPPORTED_TYPES:
         raise SpecError(f"{prefix}.type must be one of: {', '.join(sorted(SUPPORTED_TYPES))}")
     if "required" in check and not isinstance(check["required"], bool):
         raise SpecError(f"{prefix}.required must be boolean")
@@ -155,8 +156,11 @@ def _require_string_keys(mapping: dict[Any, Any], prefix: str) -> None:
 
 def _require_json_compatible(data: Any) -> None:
     try:
-        json.dumps(data, allow_nan=False)
-    except (TypeError, ValueError) as exc:
+        validate_json_tree(data)
+        encoded = json.dumps(data, allow_nan=False).encode('utf-8')
+        if len(encoded) > MAX_SPEC_BYTES:
+            raise ValueError('specification exceeds 1 MiB normalized size limit')
+    except (TypeError, ValueError, RecursionError, UnicodeError) as exc:
         raise SpecError(f"specification contains a non-JSON-compatible value: {exc}") from exc
 
 
@@ -167,6 +171,8 @@ def _is_safe_label(value: Any) -> bool:
 def _require_str(check: dict[str, Any], key: str, prefix: str) -> None:
     if not isinstance(check.get(key), str) or not check[key].strip():
         raise SpecError(f"{prefix}.{key} must be a non-empty string")
+    if key in {'path', 'url', 'host', 'cwd'} and '\0' in check[key]:
+        raise SpecError(f"{prefix}.{key} must not contain NUL")
 
 
 def _is_finite_number(value: Any) -> bool:
@@ -184,14 +190,14 @@ def _is_positive_number(value: Any) -> bool:
 
 
 def _is_positive_int(value: Any) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+    return type(value) is int and 0 < value <= MAX_READ_BYTES
 
 
 def _validate_operator(check: dict[str, Any], prefix: str, required: bool = True) -> None:
     op = check.get("operator")
     if not required and op is None:
         return
-    if op not in {"eq", "ne", "lt", "lte", "gt", "gte", "between", "in"}:
+    if not isinstance(op, str) or op not in {"eq", "ne", "lt", "lte", "gt", "gte", "between", "in"}:
         raise SpecError(f"{prefix}.operator is invalid")
     if op in {"eq", "ne", "lt", "lte", "gt", "gte"} and "value" not in check:
         raise SpecError(f"{prefix}.value is required for operator {op}")
@@ -208,6 +214,12 @@ def _validate_operator(check: dict[str, Any], prefix: str, required: bool = True
         values = check.get("values")
         if not isinstance(values, list) or not values:
             raise SpecError(f"{prefix}.values must be a non-empty list for operator in")
+    comparison_fields = {'value', 'values', 'min', 'max', 'tolerance'}
+    allowed = ({'value', 'tolerance'} if op in {'eq', 'ne'} else {'value'}
+               if op in {'lt', 'lte', 'gt', 'gte'} else {'min', 'max'} if op == 'between' else {'values'})
+    unused = (check.keys() & comparison_fields) - allowed
+    if unused:
+        raise SpecError(f"{prefix} contains comparison fields unused by {op}: {', '.join(sorted(unused))}")
     if "tolerance" in check:
         if op not in {"eq", "ne"}:
             raise SpecError(f"{prefix}.tolerance is only valid with eq or ne")
@@ -248,7 +260,7 @@ def _validate_metric(check: dict[str, Any], prefix: str) -> None:
         raise SpecError(f"{prefix}.source must be a mapping")
     _require_string_keys(source, f"{prefix}.source")
     source_type = source.get("type")
-    if source_type not in {"json", "csv"}:
+    if not isinstance(source_type, str) or source_type not in {"json", "csv"}:
         raise SpecError(f"{prefix}.source.type must be json or csv")
     allowed = (
         {"type", "path", "field", "timestamp_field", "max_age_seconds", "max_read_bytes"}
@@ -266,6 +278,9 @@ def _validate_metric(check: dict[str, Any], prefix: str) -> None:
         not _is_finite_number(source["max_age_seconds"]) or float(source["max_age_seconds"]) < 0
     ):
         raise SpecError(f"{prefix}.source.max_age_seconds must be a finite non-negative number")
+    for timestamp_key in ('timestamp_field', 'timestamp_column'):
+        if timestamp_key in source:
+            _require_str(source, timestamp_key, f"{prefix}.source")
     if "max_age_seconds" in source:
         timestamp_key = "timestamp_field" if source_type == "json" else "timestamp_column"
         _require_str(source, timestamp_key, f"{prefix}.source")
@@ -295,6 +310,8 @@ def _validate_http(check: dict[str, Any], prefix: str) -> None:
     if "json_field" in check:
         _require_str(check, "json_field", prefix)
         _validate_operator(check, prefix)
+    elif check.keys() & {'operator', 'value', 'values', 'min', 'max', 'tolerance'}:
+        raise SpecError(f"{prefix} comparison fields require json_field")
     if "timeout_seconds" in check and not _is_positive_number(check["timeout_seconds"]):
         raise SpecError(f"{prefix}.timeout_seconds must be a finite positive number")
 
@@ -312,7 +329,7 @@ def _validate_tcp(check: dict[str, Any], prefix: str) -> None:
 
 def _validate_command(check: dict[str, Any], prefix: str) -> None:
     argv = check.get("argv")
-    if not isinstance(argv, list) or not argv or not all(isinstance(v, str) and v.strip() for v in argv):
+    if not isinstance(argv, list) or not argv or not all(isinstance(v, str) and v.strip() and "\0" not in v for v in argv):
         raise SpecError(f"{prefix}.argv must be a non-empty list of non-empty strings")
     if "cwd" in check:
         _require_str(check, "cwd", prefix)

@@ -4,21 +4,24 @@ from typing import Any
 
 from worldstate_check.errors import PathBoundaryError, SpecError
 from worldstate_check.models import CheckStatus, VerificationContext
-from worldstate_check.util import compare_value, evidence_path, extract_dotted, read_text_limited, resolve_path, strict_json_loads
+from worldstate_check.util import compare_value, extract_dotted, strict_json_loads
 
 from .base import timed_result, unknown
+from worldstate_check.observations import resolve_evidence_path, observation, observation_text
 
 
 def run_json_check(check: dict[str, Any], ctx: VerificationContext):
     try:
-        path = resolve_path(ctx.root, check["path"], ctx.allow_outside_root)
+        path = resolve_evidence_path(ctx, check["path"])
     except PathBoundaryError as exc:
         return unknown(check, str(exc))
 
     def evaluate():
-        evidence = {"path": evidence_path(path, ctx.root), "field": check["field"]}
+        limit = int(check.get('max_read_bytes', 1_048_576))
+        item = observation(path, ctx, limit)
+        evidence = {**item.evidence(path, ctx.root), "field": check["field"]}
         try:
-            raw = read_text_limited(path, int(check.get("max_read_bytes", 1_048_576)))
+            raw = observation_text(item, limit)
             data = strict_json_loads(raw)
         except FileNotFoundError:
             return CheckStatus.FAIL, "JSON file does not exist", None, None, evidence, None

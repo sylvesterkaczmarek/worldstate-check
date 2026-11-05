@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=75", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "worldstate-check"
-version = "0.1.2"
+version = "0.2.0"
 description = "CLI-first deterministic postcondition verification for AI agents and autonomous systems, with an embeddable Python API."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -42,3 +42,9 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "ruff>=0.11,<1", "build>=1.2,<2", "twine>=6,<8"]
+
+[tool.ruff.lint]
+select = ["F"]

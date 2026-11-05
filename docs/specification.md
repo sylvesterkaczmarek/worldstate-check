@@ -136,3 +136,31 @@ Command checks are disabled unless `--allow-command` is supplied.
 ```
 
 Commands are executed without a shell and with standard input disabled. Specifications must provide an argument vector rather than a shell command string. Captured output is bounded by `max_output_bytes`, which defaults to 65,536 bytes per stream. Raw argv and output are not copied into evidence reports; hashes and byte counts are recorded instead.
+
+## Candidate validation and evidence bounds
+
+In 0.2.0rc1, unused operator arguments are errors. For example, eq cannot silently
+ignore min or values; HTTP comparison fields require json_field. Operational read
+and capture limits must be integers from 1 through 67,108,864 bytes. File hashes
+use the same max_read_bytes bound as text assertions, defaulting to 1 MiB.
+
+Checks on the same resolved local file share a per-attempt observation. JSON and
+metric reports include source_sha256, observed_at and size_bytes where bytes were
+read. Retries acquire fresh observations. CSV rows must consistently match their
+header. Only explicit ConnectionRefusedError can establish a negative TCP
+observation; DNS, local policy, timeout and other transport errors are UNKNOWN.
+
+## Release 0.2 consistency rules
+
+A metric comparison and its freshness requirement are evaluated separately against
+the same captured source. Any known failure yields FAIL even when the other part
+is UNKNOWN. For example, an observed temperature above its bound remains a failure
+when its timestamp is missing. A known stale timestamp also remains a failure
+when the metric field is missing. UNKNOWN remains visible in the error metadata.
+
+HTTP responses must have unambiguous framing and complete declared content within
+the evidence budget. Repeated Content-Length values are accepted only when they
+all agree. Unsupported transfer codings and conflicting framing are failures of
+request completion. Standard chunked termination is checked by the HTTP client.
+Responses defined as bodyless, such as 204 and 304, are handled as bodyless.
+Oversized bodies remain subject to the existing bounded-evidence semantics.

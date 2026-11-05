@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 from worldstate_check.cli import main
 from worldstate_check.models import CheckResult, CheckStatus, VerificationReport, Verdict

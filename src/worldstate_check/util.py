@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from datetime import datetime, timezone
 from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
 from .errors import PathBoundaryError, SpecError
+from .safe_io import read_regular_bytes
 
 
 def utc_now_iso() -> str:
@@ -34,7 +36,9 @@ def resolve_path(root: Path, raw: str, allow_outside_root: bool) -> Path:
 def evidence_path(path: Path, root: Path) -> str:
     """Return a portable evidence path when the path is inside the verification root."""
     try:
-        path = path.resolve(strict=False)
+        # Observers pass already resolved paths. Do not relabel an observation
+        # by following a replacement symlink after its bytes were captured.
+        path = Path(os.path.abspath(path))
         root = root.resolve(strict=False)
     except (OSError, RuntimeError):
         return str(path)
@@ -67,10 +71,10 @@ def redact_url_for_evidence(raw: str) -> str:
 
 def read_text_limited(path: Path, max_bytes: int) -> str:
     """Read UTF-8 text without allowing evidence input to exceed max_bytes."""
-    with path.open("rb") as handle:
-        raw = handle.read(max_bytes + 1)
-    if len(raw) > max_bytes:
-        raise ValueError(f"evidence exceeds configured read limit ({max_bytes} bytes)")
+    # User-selected metadata files may use parent aliases such as /tmp on macOS.
+    # Resolve those parents once; the final file is still opened without following links.
+    path = path.parent.resolve(strict=True) / path.name
+    raw, _ = read_regular_bytes(path, max_bytes)
     return raw.decode("utf-8")
 
 
@@ -91,16 +95,47 @@ def strict_json_loads(raw: str) -> Any:
         result = {}
         for key, value in pairs:
             if key in result:
-                raise ValueError(f"duplicate JSON object key: {key}")
+                raise ValueError("duplicate JSON object key")
             result[key] = value
         return result
 
-    return json.loads(
+    try:
+        result = json.loads(
         raw,
         parse_constant=reject_constant,
         parse_float=finite_float,
         object_pairs_hook=unique_object,
-    )
+        )
+        validate_json_tree(result)
+        return result
+    except (RecursionError, UnicodeError) as exc:
+        raise ValueError('invalid or excessively nested JSON evidence') from exc
+
+
+
+def validate_json_tree(value, *, max_depth=64, max_nodes=100000):
+    """Bound traversal and reject non-JSON values without Python coercion."""
+    stack = [(value, 0)]
+    nodes = 0
+    while stack:
+        current, depth = stack.pop()
+        nodes += 1
+        if depth > max_depth or nodes > max_nodes:
+            raise ValueError('JSON structure exceeds depth or node limit')
+        if type(current) is dict:
+            for key, item in current.items():
+                if type(key) is not str:
+                    raise ValueError('JSON object keys must be strings')
+                key.encode('utf-8')
+                stack.append((item, depth + 1))
+        elif type(current) is list:
+            stack.extend((item, depth + 1) for item in current)
+        elif type(current) is str:
+            current.encode('utf-8')
+        elif type(current) is float:
+            if not math.isfinite(current): raise ValueError('JSON numbers must be finite')
+        elif current is not None and type(current) not in (bool, int):
+            raise ValueError('value is not JSON-compatible')
 
 
 def extract_dotted(data: Any, path: str) -> Any:
