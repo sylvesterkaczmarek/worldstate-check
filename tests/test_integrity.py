@@ -315,3 +315,64 @@ def test_freshness_report_retains_actual_boundary_value(tmp_path,monkeypatch,age
     report=verify_spec_data(spec(check),root=tmp_path)
     assert report.verdict is verdict and report.results[0].evidence['age_seconds']==age
     if verdict is Verdict.NOT_VERIFIED:assert report.results[0].observed['age_seconds']>5
+
+
+@pytest.mark.parametrize('change',['none','path-ctime','descriptor-ctime'])
+def test_native_stat_ctime_views_are_compared_within_their_api(tmp_path,monkeypatch,change):
+    from types import SimpleNamespace
+    import worldstate_check.safe_io as safe_io
+    path=tmp_path/'data';path.write_bytes(b'synthetic')
+    original_stat=safe_io._stat;original_fstat=os.fstat
+    counts={'path':0,'descriptor':0}
+    def fields(info,ctime):
+        return SimpleNamespace(st_dev=info.st_dev,st_ino=info.st_ino,st_size=info.st_size,
+                               st_mtime_ns=info.st_mtime_ns,st_ctime_ns=ctime,
+                               st_nlink=info.st_nlink,st_mode=info.st_mode,
+                               st_file_attributes=getattr(info,'st_file_attributes',0))
+    def path_stat(*args):
+        info=original_stat(*args);counts['path']+=1
+        # Creation time versus change time can differ for an unchanged file.
+        ctime=info.st_ctime_ns-123456789
+        if change=='path-ctime' and counts['path']>1:ctime+=100
+        return fields(info,ctime)
+    def descriptor_stat(*args):
+        info=original_fstat(*args);counts['descriptor']+=1
+        ctime=info.st_ctime_ns
+        if change=='descriptor-ctime' and counts['descriptor']>1:ctime+=100
+        return fields(info,ctime)
+    monkeypatch.setattr(safe_io,'_stat',path_stat)
+    monkeypatch.setattr(os,'fstat',descriptor_stat)
+    if change=='none':assert read_regular_bytes(path,32)[0]==b'synthetic'
+    else:
+        with pytest.raises(ValueError,match='changed during observation'):read_regular_bytes(path,32)
+
+
+@pytest.mark.skipif(os.name!='posix',reason='POSIX group cleanup')
+@pytest.mark.parametrize('remaining',['gone','permission','exists'])
+def test_cleanup_permission_error_requires_group_absence_confirmation(monkeypatch,remaining):
+    from worldstate_check.processes import _stop
+    calls=[]
+    class Process:
+        pid=456789
+        def poll(self):return 0
+        def wait(self,timeout):calls.append(('wait',timeout));return 0
+    def signal_group(pid,sig):
+        calls.append((pid,sig))
+        assert pid==456789
+        if sig!=0:raise PermissionError('synthetic unreaped leader')
+        if remaining=='gone':raise ProcessLookupError('group gone')
+        if remaining=='permission':raise PermissionError('still not permitted')
+    monkeypatch.setattr(os,'killpg',signal_group)
+    error=_stop(Process())
+    assert (error is None)==(remaining=='gone')
+    assert calls[1]==('wait',5) and calls[-1]==(456789,0)
+
+
+def test_unresolved_command_cleanup_is_not_verified(tmp_path,monkeypatch):
+    from worldstate_check.processes import CommandOutcome
+    result=CommandOutcome(0,b'OK',b'',2,0,False,False,'PermissionError')
+    monkeypatch.setattr('worldstate_check.checks.command.run_bounded',lambda *a,**k:result)
+    check={'id':'c','type':'command','argv':['synthetic'],'exit_code':0}
+    report=verify_spec_data(spec(check),root=tmp_path,allow_command=True)
+    assert report.verdict is Verdict.UNCERTAIN
+    assert report.results[0].evidence['cleanup_error']=='PermissionError'

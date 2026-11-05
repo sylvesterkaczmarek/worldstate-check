@@ -69,7 +69,16 @@ def read_regular_bytes(path: Path, limit: int) -> tuple[bytes, os.stat_result]:
             current = _stat(name, directory)
         if len(raw) > limit:
             raise ValueError(f'evidence exceeds configured read limit ({limit} bytes)')
-        identity = lambda info: (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns, info.st_nlink)
-        if identity(before) != identity(after) or identity(after) != identity(current):
+        def identity(info):
+            return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_nlink)
+        # Windows stat and fstat can expose different ctime semantics. Compare
+        # ctime only within the same API, while binding both views by identity,
+        # size, modification time and link count. See CPython issue 157671.
+        if (identity(before) != identity(after)
+                or before.st_ctime_ns != after.st_ctime_ns
+                or identity(before_open) != identity(current)
+                or before_open.st_ctime_ns != current.st_ctime_ns
+                or identity(after) != identity(current)
+                or _redirected(current)):
             raise ValueError('evidence file changed during observation')
     return raw, after

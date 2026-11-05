@@ -69,8 +69,12 @@ def run_command_check(check: dict[str, Any], ctx: VerificationContext):
             "stdout_sha256": hashlib.sha256(proc.stdout).hexdigest(),
             "stderr_sha256": hashlib.sha256(proc.stderr).hexdigest(),
         }
+        if proc.cleanup_error is not None:
+            evidence['cleanup_error'] = proc.cleanup_error
         if failures:
             return CheckStatus.FAIL, "; ".join(failures), expected, observed, evidence, None
+        if proc.cleanup_error is not None:
+            return CheckStatus.UNKNOWN, "verification command cleanup could not be confirmed", expected, observed, evidence, proc.cleanup_error
         return CheckStatus.PASS, "command postcondition satisfied", expected, observed, evidence, None
 
     return timed_result(check, evaluate)
