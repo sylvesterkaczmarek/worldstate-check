@@ -6,7 +6,9 @@ Reviewed candidate 8073f25947bff6798a0e9ee1058de64721447753, from a fresh
 checkout and environment. The original candidate passed 232 tests. A separate
 40-case suite returned 23 passes and 17 failing cases. Further controls added two
 more metric-conjunction cases and seven positive/negative HTTP controls. All 49
-review cases pass after correction. Separate test design is not external certification.
+review cases pass after correction. Replaying the complete 49-case file against the
+original candidate produced 20 failures and 29 passes, including the additional
+framing/redaction control. Separate test design is not external certification.
 
 The original 27 implementation findings were independently reproduced against
 base d2af56cd4df55a6aa2f4d7a0ae09ee3abe193233, then rerun successfully after repair.

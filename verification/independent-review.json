@@ -14,7 +14,8 @@
   "public_download_verifier_tests": 8,
   "full_suite": 289,
   "scope": "synthetic local and owned loopback tests; not external certification",
-  "full_independent_suite_candidate_failed": 19,
-  "full_independent_suite_candidate_passed": 30,
-  "original_probe_sha256": "fbfb426432c9dce047c6b2d46324a2361149d66aaef1f274aa11603eab992041"
+  "full_independent_suite_candidate_failed": 20,
+  "full_independent_suite_candidate_passed": 29,
+  "original_probe_sha256": "fbfb426432c9dce047c6b2d46324a2361149d66aaef1f274aa11603eab992041",
+  "extended_framing_redaction_failure": 1
 }
