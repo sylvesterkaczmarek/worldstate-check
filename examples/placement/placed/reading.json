@@ -1,0 +1,24 @@
+{
+  "ack": true,
+  "samples": [
+    {
+      "t": 0.0,
+      "id": 0,
+      "subject": "current",
+      "good": true
+    },
+    {
+      "t": 0.5,
+      "id": 100,
+      "subject": "current",
+      "good": true
+    },
+    {
+      "t": 1.0,
+      "id": 200,
+      "subject": "current",
+      "good": true
+    }
+  ],
+  "before": false
+}

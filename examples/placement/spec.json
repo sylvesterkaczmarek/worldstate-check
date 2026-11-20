@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "task": "verify-outcome",
+  "checks": [
+    {
+      "id": "stable",
+      "type": "window",
+      "path": "reading.json",
+      "series": "samples",
+      "timestamp_field": "t",
+      "sample_id_field": "id",
+      "start": 0,
+      "end": 1,
+      "max_gap_seconds": 0.5,
+      "match": {
+        "subject": "current"
+      },
+      "field": "good",
+      "operator": "eq",
+      "value": true
+    }
+  ]
+}

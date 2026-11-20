@@ -38,3 +38,5 @@ Verifier commands have closed stdin, monitored spool capture and bounded returne
 bytes. POSIX-owned process groups are stopped on completion, timeout, overflow or
 interruption. Windows descendant cleanup is best effort. Spool polling does not
 establish a hard disk quota. See audit-2026-11-05.md for the full contract.
+
+Opt-in observation recordings retain original specification values and raw evidence, including HTTP response bodies and command streams. Store them according to the sensitivity of the source. Replay reads the bundle and evaluates its predicates without enabling live commands, sockets or original file acquisition.

@@ -1,6 +1,8 @@
 include LICENSE README.md CITATION.cff CONTRIBUTING.md SECURITY.md Makefile CHANGELOG.md requirements.txt
 recursive-include docs *.md
-recursive-include examples *.yaml *.json
+recursive-include examples *.yaml *.json *.py
+recursive-include research *.py *.md *.json
+recursive-include src/worldstate_check/data *.json
 recursive-include tests *.py
 recursive-include scripts *.py
 recursive-include assets *.png

@@ -10,7 +10,7 @@ import re
 import tempfile
 from typing import Any
 
-from .models import CheckStatus, VerificationReport
+from .models import REPORT_SCHEMA, CheckStatus, VerificationReport
 from .util import canonical_json, parse_timestamp, read_text_limited, strict_json_loads, validate_json_tree
 
 
@@ -24,12 +24,12 @@ def _finite_nonnegative(value):
 
 def validate_report_data(data):
     """Verify structure and recompute the declared verdict. This is not authentication."""
-    validate_json_tree(data)
+    validate_json_tree(data, max_nodes=3_000_000, max_depth=96)
     required = {'schema_version','task','verdict','started_at','finished_at','duration_ms','attempts',
                 'required_passed','required_total','results'}
     if not isinstance(data, dict) or not required <= data.keys() or data.keys() - required - {'specification_sha256'}:
         raise ValueError('unsupported or incomplete report structure')
-    if type(data['schema_version']) is not int or data['schema_version'] != 1:
+    if type(data['schema_version']) is not int or data['schema_version'] not in (1, REPORT_SCHEMA):
         raise ValueError('unsupported report schema')
     if not isinstance(data['task'], str) or not data['task'].strip() or not data['task'].isprintable():
         raise ValueError('invalid report task')
@@ -47,14 +47,24 @@ def validate_report_data(data):
         raise ValueError('report must contain check results')
     seen, required_statuses = set(), []
     fields = {'check_id','check_type','required','status','summary','expected','observed','evidence','error','duration_ms'}
+    if data["schema_version"] == REPORT_SCHEMA:
+        fields.add("reason_code")
+        if fingerprint is None:
+            raise ValueError("schema-2 reports require a specification hash")
     for row in rows:
         if not isinstance(row, dict) or row.keys() != fields:
             raise ValueError('invalid check result structure')
+        if "reason_code" in row and row["reason_code"] not in (
+            "satisfied", "stale", "field_missing", "incomplete_window", "inconclusive", "postcondition_failed"
+        ):
+            raise ValueError("invalid reason code")
+        if "reason_code" in row and (row["reason_code"] == "satisfied") != (row["status"] == "PASS"):
+            raise ValueError("reason code contradicts check status")
         identifier = row['check_id']
         if not isinstance(identifier, str) or not identifier.strip() or not identifier.isprintable() or identifier in seen:
             raise ValueError('invalid or duplicate check identifier')
         seen.add(identifier)
-        if row['check_type'] not in ('file','json','metric','http','tcp','command'):
+        if row['check_type'] not in ('file','json','metric','http','tcp','command','window'):
             raise ValueError('unknown reported check type')
         if type(row['required']) is not bool or row['status'] not in ('PASS','FAIL','UNKNOWN'):
             raise ValueError('invalid check requirement or status')
@@ -64,6 +74,18 @@ def validate_report_data(data):
             raise ValueError('invalid check metadata')
         if row['status'] == 'PASS' and row['error'] is not None:
             raise ValueError('passing result contains an unresolved error')
+        if data["schema_version"] == REPORT_SCHEMA and "value_references" in row["evidence"]:
+            references = row["evidence"]["value_references"]
+            if not isinstance(references, dict) or not references or references.keys() - {"expected", "observed", "evidence", "summary", "error"}:
+                raise ValueError("invalid bounded value references")
+            for key, reference in references.items():
+                if (not isinstance(reference, dict) or reference.keys() != {"encoding", "type", "size_bytes", "sha256"}
+                        or reference["encoding"] != "canonical-json-utf8" or type(reference["size_bytes"]) is not int
+                        or reference["size_bytes"] < 1 or reference["type"] not in ("list", "dict", "str", "float", "int", "bool", "NoneType")
+                        or not isinstance(reference["sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", reference["sha256"])):
+                    raise ValueError("invalid bounded value reference metadata")
+                if key in ("expected", "observed") and row[key] is not None:
+                    raise ValueError("referenced value also appears inline")
         if row['required']: required_statuses.append(row['status'])
     if not required_statuses:
         raise ValueError('report must contain a required result')
@@ -85,7 +107,7 @@ def report_payload(report: VerificationReport) -> dict[str, Any]:
 
 def verify_json_report(path: Path) -> bool:
     try:
-        data = strict_json_loads(read_text_limited(path, 16 * 1024 * 1024))
+        data = strict_json_loads(read_text_limited(path, 64 * 1024 * 1024), max_nodes=3_000_000, max_depth=96)
         if not isinstance(data, dict): return False
         claimed = data.pop('report_sha256', None)
         if not isinstance(claimed, str) or re.fullmatch(r'[0-9a-f]{64}', claimed) is None: return False
@@ -110,7 +132,12 @@ def validate_report_destination(path, protected=()):
 
 def write_json_report(report: VerificationReport, path: Path, *, protected=()) -> Path:
     path = validate_report_destination(path, protected)
-    content = json.dumps(report_payload(report), indent=2, sort_keys=True, allow_nan=False) + '\n'
+    content = canonical_json(report_payload(report)) + '\n'
+    return write_atomic_text(path, content, protected=protected)
+
+
+def write_atomic_text(path, content, *, protected=()):
+    path = validate_report_destination(path, protected)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
     try:

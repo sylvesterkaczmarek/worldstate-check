@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import hashlib
 import re
 import urllib.error
 import urllib.request
 from contextlib import closing
 from http.client import HTTPException, IncompleteRead
 from typing import Any
+from urllib.parse import urljoin, urldefrag
+
+from worldstate_check.journal import sample
+from worldstate_check.util import MISSING, field_value, utc_now_iso
 
 from worldstate_check.errors import SpecError
 from worldstate_check.models import CheckStatus, VerificationContext
-from worldstate_check.util import compare_value, extract_dotted, redact_url_for_evidence, strict_json_loads
+from worldstate_check.util import compare_value, redact_url_for_evidence, strict_json_loads
 
 from .base import timed_result, unknown
 
@@ -48,37 +53,89 @@ def _declared_body_length(response):
         raise ValueError('conflicting HTTP content lengths')
     return values[0]
 
+class _RedirectPolicy(urllib.request.HTTPRedirectHandler):
+    def __init__(self, destination):
+        self.destination = destination
+
+    def redirect_request(self, request, fp, code, msg, headers, newurl):
+        if newurl != self.destination:
+            return None
+        return super().redirect_request(request, fp, code, msg, headers, newurl)
+
+
+def _open_response(request, *, timeout, redirect_to):
+    opener = urllib.request.build_opener(_RedirectPolicy(redirect_to))
+    return opener.open(request, timeout=timeout)
+
+
+def _capture_http(check):
+    url = check["url"]
+    record = {"observed_at": utc_now_iso(), "effective_url": None, "redirect_target": None,
+              "redirected": False, "status": None, "body": None, "error": None}
+    try:
+        request = urllib.request.Request(url, method="GET", headers={"User-Agent": "worldstate-check"})
+        try:
+            response = _open_response(request, timeout=check.get("timeout_seconds", 3.0),
+                                      redirect_to=check.get("redirect_to"))
+        except urllib.error.HTTPError as exc:
+            response = exc
+        with closing(response):
+            effective = response.geturl() if hasattr(response, "geturl") else url
+            record["effective_url"] = redact_url_for_evidence(effective)
+            record["redirected"] = urldefrag(effective).url != urldefrag(url).url
+            record["status"] = response.status
+            headers = getattr(response, "headers", None)
+            location = headers.get("Location") if headers else None
+            if location and response.status in (301, 302, 303, 307, 308):
+                record["redirect_target"] = redact_url_for_evidence(urljoin(effective, location))
+            declared = _declared_body_length(response)
+            body = response.read(1_048_577)
+            if declared is not None and len(body) < min(declared, 1_048_577):
+                raise IncompleteRead(body, declared - len(body))
+            record["body"] = body
+    except (OverflowError, urllib.error.URLError, OSError, HTTPException, ValueError) as exc:
+        record["error"] = type(exc).__name__
+    return record
+
+
 def run_http_check(check: dict[str, Any], ctx: VerificationContext):
     if not ctx.allow_network:
         return unknown(check, "network checks are disabled; pass --allow-network for a trusted specification")
 
     def evaluate():
-        timeout = float(check.get("timeout_seconds", 3.0))
-        evidence: dict[str, Any] = {"url": redact_url_for_evidence(check["url"])}
-        try:
-            request = urllib.request.Request(check["url"], method="GET", headers={"User-Agent": "worldstate-check/0.1"})
-            try:
-                response = urllib.request.urlopen(request, timeout=timeout)
-            except urllib.error.HTTPError as exc:
-                # Error responses are still valid evidence for an explicit status assertion.
-                response = exc
-            with closing(response):
-                status = response.status
-                declared_length = _declared_body_length(response)
-                body_bytes = response.read(1_048_577)
-                if declared_length is not None and len(body_bytes) < min(declared_length, 1_048_577):
-                    raise IncompleteRead(body_bytes, declared_length - len(body_bytes))
-        except OverflowError:
-            return CheckStatus.UNKNOWN, "HTTP timeout is unsupported by this runtime", None, None, evidence, "OverflowError"
-        except (urllib.error.URLError, TimeoutError, OSError, HTTPException, ValueError) as exc:
-            # Transport messages may contain the request URL or a redirect URL,
-            # including credentials. Retain the failure class without that text.
-            return CheckStatus.FAIL, "HTTP request or response could not be completed", None, None, evidence, type(exc).__name__
+        key = (urldefrag(check["url"]).url, check.get("sample"))
+        session = ctx._session
+        if session is not None and key in session.http:
+            record = session.http[key]
+        else:
+            record = sample(ctx, "http", check["id"], lambda: _capture_http(check))
+            if session is not None:
+                body = record["body"]
+                if body is not None:
+                    if len(body) > session.remaining_bytes:
+                        record = {**record, "error": "ObservationBudget", "body": None}
+                    else:
+                        session.retained_bytes += len(body)
+                session.http[key] = record
+
+        evidence = {"url": redact_url_for_evidence(check["url"])}
+        for field in ("observed_at", "effective_url", "redirect_target", "redirected"):
+            evidence[field] = record[field]
+        if record["error"] is not None:
+            if record["error"] in {"ObservationBudget", "OverflowError"}:
+                return CheckStatus.UNKNOWN, "HTTP observation limit exceeded", None, None, evidence, record["error"]
+            return CheckStatus.FAIL, "HTTP request or response could not be completed", None, None, evidence, record["error"]
+        body_bytes = record["body"]
+        status = record["status"]
+        if len(body_bytes) <= 1_048_576:
+            evidence["source_sha256"] = hashlib.sha256(body_bytes).hexdigest()
 
         observed: dict[str, Any] = {"status": status}
         expected: dict[str, Any] = {}
         failures: list[str] = []
 
+        if record["redirect_target"] is not None and check.get("status") != status:
+            failures.append("redirect destination was not authorised")
         if "status" in check:
             expected["status"] = check["status"]
             if status != check["status"]:
@@ -99,7 +156,8 @@ def run_http_check(check: dict[str, Any], ctx: VerificationContext):
             try:
                 payload = strict_json_loads(body_bytes.decode("utf-8"))
                 error_context = "HTTP JSON field is missing or incompatible with the requested comparison"
-                value = extract_dotted(payload, check["json_field"])
+                value = field_value(payload, check["json_field"])
+                evidence["field_present"] = value is not MISSING
                 matched, expected_value = compare_value(value, check["operator"], check)
             except (KeyError, ValueError, SpecError, RecursionError):
                 # Do not let an unevaluable assertion hide an already observed
@@ -107,6 +165,8 @@ def run_http_check(check: dict[str, Any], ctx: VerificationContext):
                 summary = "; ".join([*failures, "HTTP JSON assertion could not be evaluated"])
                 result_status = CheckStatus.FAIL if failures else CheckStatus.UNKNOWN
                 return result_status, summary, expected, observed, evidence, error_context
+            if check["operator"] == "exists":
+                value = value is not MISSING
             expected["json"] = {"field": check["json_field"], "value": expected_value, "operator": check["operator"]}
             observed["json"] = {"field": check["json_field"], "value": value}
             if not matched:

@@ -1,6 +1,6 @@
 import io
 import urllib.error
-import urllib.request
+from worldstate_check.checks import http
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
@@ -58,7 +58,7 @@ def assert_report_redacted(tmp_path, report, safe_url):
 
 @pytest.mark.parametrize("status", [200, 503])
 def test_public_http_report_redacts_url_and_closes_response(tmp_path, monkeypatch, status):
-    urlopen = urllib.request.urlopen
+    urlopen = http._open_response
     responses = []
 
     def tracked_urlopen(*args, **kwargs):
@@ -70,7 +70,7 @@ def test_public_http_report_redacts_url_and_closes_response(tmp_path, monkeypatc
         responses.append(response)
         return response
 
-    monkeypatch.setattr(urllib.request, "urlopen", tracked_urlopen)
+    monkeypatch.setattr(http, "_open_response", tracked_urlopen)
     with endpoint(status=status) as (url, requests):
         report = verify_http(
             tmp_path,
@@ -109,7 +109,7 @@ def test_url_bearing_transport_errors_do_not_leak_and_close_response(tmp_path, m
             raise urllib.error.HTTPError(url, 503, f"unavailable: {url}", {}, response)
         return response
 
-    monkeypatch.setattr(urllib.request, "urlopen", failing_urlopen)
+    monkeypatch.setattr(http, "_open_response", failing_urlopen)
     report = verify_http(tmp_path, url, status=200)
 
     assert report.results[0].status is CheckStatus.FAIL
@@ -162,7 +162,7 @@ def test_invalid_json_does_not_hide_observed_failure(tmp_path, assertions):
 def test_response_limit_preserves_status_failure_and_closes_response(tmp_path, monkeypatch, status, expected_verdict):
     response = io.BytesIO(b"x" * 1_048_577)
     response.status = status
-    monkeypatch.setattr(urllib.request, "urlopen", lambda *args, **kwargs: response)
+    monkeypatch.setattr(http, "_open_response", lambda *args, **kwargs: response)
     report = verify_http(tmp_path, "http://127.0.0.1:1234/health", status=200)
     assert report.verdict is expected_verdict
     assert response.closed

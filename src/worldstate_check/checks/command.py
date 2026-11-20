@@ -3,35 +3,48 @@ from __future__ import annotations
 import hashlib
 import os
 from typing import Any
+from dataclasses import asdict
+
+from worldstate_check.journal import sample
 
 from worldstate_check.errors import PathBoundaryError
 from worldstate_check.models import CheckStatus, VerificationContext
 from worldstate_check.util import resolve_path
 
 from .base import timed_result, unknown
-from worldstate_check.processes import run_bounded
+from worldstate_check.processes import CommandOutcome, run_bounded
 
 
 def run_command_check(check: dict[str, Any], ctx: VerificationContext):
     if not ctx.allow_command:
         return unknown(check, "command checks are disabled; pass --allow-command for a trusted specification")
-    try:
-        cwd = resolve_path(ctx.root, check.get("cwd", "."), ctx.allow_outside_root)
-    except PathBoundaryError as exc:
-        return unknown(check, str(exc))
-
-    def evaluate():
-        max_bytes = check.get("max_output_bytes", 65_536)
-        timeout = float(check.get("timeout_seconds", 10.0))
+    def collect():
+        try:
+            cwd = resolve_path(ctx.root, check.get("cwd", "."), ctx.allow_outside_root)
+        except PathBoundaryError as exc:
+            return {"boundary_error": str(exc)}
         env = {"PATH": os.environ.get("PATH", ""), "HOME": os.environ.get("HOME", "")}
-        # Preserve essential Windows process environment without inheriting credentials.
-        for name in ('SystemRoot', 'WINDIR', 'COMSPEC', 'PATHEXT', 'TEMP', 'TMP'):
-            if os.name == 'nt' and name in os.environ:
+        for name in ("SystemRoot", "WINDIR", "COMSPEC", "PATHEXT", "TEMP", "TMP"):
+            if os.name == "nt" and name in os.environ:
                 env[name] = os.environ[name]
         try:
-            proc = run_bounded(check['argv'], cwd=cwd, env=env, timeout=timeout, max_bytes=max_bytes)
+            outcome = run_bounded(check["argv"], cwd=cwd, env=env, timeout=timeout, max_bytes=max_bytes)
         except (OSError, ValueError) as exc:
-            return CheckStatus.UNKNOWN, "verification command could not be started", None, None, {"cwd": str(cwd)}, type(exc).__name__
+            return {"cwd": str(cwd), "start_error": type(exc).__name__}
+        return {"cwd": str(cwd), **asdict(outcome)}
+
+    max_bytes = check.get("max_output_bytes", 65_536)
+    timeout = float(check.get("timeout_seconds", 10.0))
+
+    def evaluate():
+        record = sample(ctx, "command", check["id"], collect)
+        if "boundary_error" in record:
+            error = record["boundary_error"]
+            return CheckStatus.UNKNOWN, error, None, None, {}, error
+        cwd = record["cwd"]
+        if "start_error" in record:
+            return CheckStatus.UNKNOWN, "verification command could not be started", None, None, {"cwd": cwd}, record["start_error"]
+        proc = CommandOutcome(**{k: v for k, v in record.items() if k != "cwd"})
         if proc.timed_out:
             return CheckStatus.FAIL, "verification command timed out", {"timeout_seconds": timeout}, None, {"cwd": str(cwd)}, None
         if proc.output_limited:

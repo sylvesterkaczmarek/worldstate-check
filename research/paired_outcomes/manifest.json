@@ -1,0 +1,18 @@
+{
+  "format": "worldstate-check/paired-outcomes/1",
+  "license": "MIT",
+  "episodes": 66,
+  "views": 4,
+  "methods": 5,
+  "sha256": {
+    "protocol.md": "615b086b659750d5d831e12f6d311d619f4fcc66854ee073a805bc20232ef331",
+    "record.py": "c5dfa43e4755286616a18761f227f18107176a578ff82b39d8195cd84689c6db",
+    "oracle.py": "79f451f572866539b82c7f44342afe74e69f14da1022ec054446e662e239bdd0",
+    "analyze.py": "1c2596468ce8fdbdf2326bf8b29eb7848fecb24d3fe632bba4d82bdc66acb2c5",
+    "check_legacy.py": "17a8973bf42bf9f5a89cafd9dffc886d4784f6362d6b4d88b344c2dc4eb72465",
+    "episodes.json": "2808cb867804aceca4c2846faaf6085837ce6d1d63c40b43ced05574f28201bd",
+    "results.json": "5a86783c0fecbb5b9ae624d27989e556d45725b1af4558169fdf99756454158a",
+    "verify_archive.py": "125739fae821483b03063fcd105979e2c0e9301273900cb17c6fa898e76f9c15",
+    "timings.json": "1d0ac8c751e147a7d5ce92a133662edd0f9e598371bd11624b49876e52ba8ae9"
+  }
+}

@@ -1,0 +1,322 @@
+{
+  "development/deployment/ack/ack": {
+    "median_ms": 0.001272,
+    "calls": 11
+  },
+  "development/deployment/ack/snapshot_v02": {
+    "median_ms": 0.509037,
+    "calls": 11
+  },
+  "development/deployment/ack/bound_latest": {
+    "median_ms": 0.001472,
+    "calls": 11
+  },
+  "development/deployment/ack/hand_timed": {
+    "median_ms": 0.000812,
+    "calls": 11
+  },
+  "development/deployment/ack/worldstate": {
+    "median_ms": 0.579232,
+    "calls": 11
+  },
+  "development/deployment/snapshot/ack": {
+    "median_ms": 0.001292,
+    "calls": 11
+  },
+  "development/deployment/snapshot/snapshot_v02": {
+    "median_ms": 0.535066,
+    "calls": 11
+  },
+  "development/deployment/snapshot/bound_latest": {
+    "median_ms": 0.001753,
+    "calls": 11
+  },
+  "development/deployment/snapshot/hand_timed": {
+    "median_ms": 0.001031,
+    "calls": 11
+  },
+  "development/deployment/snapshot/worldstate": {
+    "median_ms": 0.565061,
+    "calls": 11
+  },
+  "development/deployment/bound/ack": {
+    "median_ms": 0.001232,
+    "calls": 11
+  },
+  "development/deployment/bound/snapshot_v02": {
+    "median_ms": 0.508205,
+    "calls": 11
+  },
+  "development/deployment/bound/bound_latest": {
+    "median_ms": 0.002724,
+    "calls": 11
+  },
+  "development/deployment/bound/hand_timed": {
+    "median_ms": 0.002414,
+    "calls": 11
+  },
+  "development/deployment/bound/worldstate": {
+    "median_ms": 0.534785,
+    "calls": 11
+  },
+  "development/deployment/window/ack": {
+    "median_ms": 0.001261,
+    "calls": 11
+  },
+  "development/deployment/window/snapshot_v02": {
+    "median_ms": 0.494285,
+    "calls": 11
+  },
+  "development/deployment/window/bound_latest": {
+    "median_ms": 0.002874,
+    "calls": 11
+  },
+  "development/deployment/window/hand_timed": {
+    "median_ms": 0.002444,
+    "calls": 11
+  },
+  "development/deployment/window/worldstate": {
+    "median_ms": 0.615897,
+    "calls": 11
+  },
+  "heldout/deployment/ack/ack": {
+    "median_ms": 0.000962,
+    "calls": 22
+  },
+  "heldout/deployment/ack/snapshot_v02": {
+    "median_ms": 0.3204325,
+    "calls": 22
+  },
+  "heldout/deployment/ack/bound_latest": {
+    "median_ms": 0.001041,
+    "calls": 22
+  },
+  "heldout/deployment/ack/hand_timed": {
+    "median_ms": 0.0005105,
+    "calls": 22
+  },
+  "heldout/deployment/ack/worldstate": {
+    "median_ms": 0.383613,
+    "calls": 22
+  },
+  "heldout/deployment/snapshot/ack": {
+    "median_ms": 0.000801,
+    "calls": 22
+  },
+  "heldout/deployment/snapshot/snapshot_v02": {
+    "median_ms": 0.3219695,
+    "calls": 22
+  },
+  "heldout/deployment/snapshot/bound_latest": {
+    "median_ms": 0.001177,
+    "calls": 22
+  },
+  "heldout/deployment/snapshot/hand_timed": {
+    "median_ms": 0.0006360000000000001,
+    "calls": 22
+  },
+  "heldout/deployment/snapshot/worldstate": {
+    "median_ms": 0.392867,
+    "calls": 22
+  },
+  "heldout/deployment/bound/ack": {
+    "median_ms": 0.000901,
+    "calls": 22
+  },
+  "heldout/deployment/bound/snapshot_v02": {
+    "median_ms": 0.347468,
+    "calls": 22
+  },
+  "heldout/deployment/bound/bound_latest": {
+    "median_ms": 0.002153,
+    "calls": 22
+  },
+  "heldout/deployment/bound/hand_timed": {
+    "median_ms": 0.0015975,
+    "calls": 22
+  },
+  "heldout/deployment/bound/worldstate": {
+    "median_ms": 0.428089,
+    "calls": 22
+  },
+  "heldout/deployment/window/ack": {
+    "median_ms": 0.000831,
+    "calls": 22
+  },
+  "heldout/deployment/window/snapshot_v02": {
+    "median_ms": 0.310027,
+    "calls": 22
+  },
+  "heldout/deployment/window/bound_latest": {
+    "median_ms": 0.0022935,
+    "calls": 22
+  },
+  "heldout/deployment/window/hand_timed": {
+    "median_ms": 0.002209,
+    "calls": 22
+  },
+  "heldout/deployment/window/worldstate": {
+    "median_ms": 0.4343595,
+    "calls": 22
+  },
+  "development/placement/ack/ack": {
+    "median_ms": 0.001453,
+    "calls": 11
+  },
+  "development/placement/ack/snapshot_v02": {
+    "median_ms": 0.562988,
+    "calls": 11
+  },
+  "development/placement/ack/bound_latest": {
+    "median_ms": 0.001552,
+    "calls": 11
+  },
+  "development/placement/ack/hand_timed": {
+    "median_ms": 0.000891,
+    "calls": 11
+  },
+  "development/placement/ack/worldstate": {
+    "median_ms": 0.581365,
+    "calls": 11
+  },
+  "development/placement/snapshot/ack": {
+    "median_ms": 0.001161,
+    "calls": 11
+  },
+  "development/placement/snapshot/snapshot_v02": {
+    "median_ms": 0.493263,
+    "calls": 11
+  },
+  "development/placement/snapshot/bound_latest": {
+    "median_ms": 0.001692,
+    "calls": 11
+  },
+  "development/placement/snapshot/hand_timed": {
+    "median_ms": 0.000912,
+    "calls": 11
+  },
+  "development/placement/snapshot/worldstate": {
+    "median_ms": 0.553844,
+    "calls": 11
+  },
+  "development/placement/bound/ack": {
+    "median_ms": 0.001272,
+    "calls": 11
+  },
+  "development/placement/bound/snapshot_v02": {
+    "median_ms": 0.495997,
+    "calls": 11
+  },
+  "development/placement/bound/bound_latest": {
+    "median_ms": 0.002474,
+    "calls": 11
+  },
+  "development/placement/bound/hand_timed": {
+    "median_ms": 0.002313,
+    "calls": 11
+  },
+  "development/placement/bound/worldstate": {
+    "median_ms": 0.600674,
+    "calls": 11
+  },
+  "development/placement/window/ack": {
+    "median_ms": 0.001251,
+    "calls": 11
+  },
+  "development/placement/window/snapshot_v02": {
+    "median_ms": 0.496038,
+    "calls": 11
+  },
+  "development/placement/window/bound_latest": {
+    "median_ms": 0.002845,
+    "calls": 11
+  },
+  "development/placement/window/hand_timed": {
+    "median_ms": 0.002574,
+    "calls": 11
+  },
+  "development/placement/window/worldstate": {
+    "median_ms": 0.620414,
+    "calls": 11
+  },
+  "heldout/placement/ack/ack": {
+    "median_ms": 0.0013725,
+    "calls": 22
+  },
+  "heldout/placement/ack/snapshot_v02": {
+    "median_ms": 0.538747,
+    "calls": 22
+  },
+  "heldout/placement/ack/bound_latest": {
+    "median_ms": 0.0014125000000000001,
+    "calls": 22
+  },
+  "heldout/placement/ack/hand_timed": {
+    "median_ms": 0.001107,
+    "calls": 22
+  },
+  "heldout/placement/ack/worldstate": {
+    "median_ms": 0.5871795,
+    "calls": 22
+  },
+  "heldout/placement/snapshot/ack": {
+    "median_ms": 0.001227,
+    "calls": 22
+  },
+  "heldout/placement/snapshot/snapshot_v02": {
+    "median_ms": 0.5381400000000001,
+    "calls": 22
+  },
+  "heldout/placement/snapshot/bound_latest": {
+    "median_ms": 0.001722,
+    "calls": 22
+  },
+  "heldout/placement/snapshot/hand_timed": {
+    "median_ms": 0.0010265,
+    "calls": 22
+  },
+  "heldout/placement/snapshot/worldstate": {
+    "median_ms": 0.5840845,
+    "calls": 22
+  },
+  "heldout/placement/bound/ack": {
+    "median_ms": 0.0013319999999999999,
+    "calls": 22
+  },
+  "heldout/placement/bound/snapshot_v02": {
+    "median_ms": 0.5262925,
+    "calls": 22
+  },
+  "heldout/placement/bound/bound_latest": {
+    "median_ms": 0.0027695000000000003,
+    "calls": 22
+  },
+  "heldout/placement/bound/hand_timed": {
+    "median_ms": 0.0024739999999999996,
+    "calls": 22
+  },
+  "heldout/placement/bound/worldstate": {
+    "median_ms": 0.591726,
+    "calls": 22
+  },
+  "heldout/placement/window/ack": {
+    "median_ms": 0.001307,
+    "calls": 22
+  },
+  "heldout/placement/window/snapshot_v02": {
+    "median_ms": 0.5360625,
+    "calls": 22
+  },
+  "heldout/placement/window/bound_latest": {
+    "median_ms": 0.0029845,
+    "calls": 22
+  },
+  "heldout/placement/window/hand_timed": {
+    "median_ms": 0.002414,
+    "calls": 22
+  },
+  "heldout/placement/window/worldstate": {
+    "median_ms": 0.6146309999999999,
+    "calls": 22
+  }
+}

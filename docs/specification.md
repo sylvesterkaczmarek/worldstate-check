@@ -164,3 +164,7 @@ all agree. Unsupported transfer codings and conflicting framing are failures of
 request completion. Standard chunked termination is checked by the HTTP client.
 Responses defined as bodyless, such as 204 and 304, are handled as bodyless.
 Oversized bodies remain subject to the existing bounded-evidence semantics.
+
+## Development revision
+
+The [observation and replay guide](observation-replay.md) describes sampled windows, HTTP sample groups and redirect policy, the `exists` comparison operator, source timestamp requirements and the portable verdict table.

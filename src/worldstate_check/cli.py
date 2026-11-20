@@ -5,12 +5,16 @@ import json
 import sys
 from pathlib import Path
 
-from . import __version__, verify_spec_data
+from . import __version__
+from .engine import verify
+from .models import VerificationContext
+from .util import canonical_json
 from .demo import run_demo
 from .errors import SpecError
 from .loader import load_spec
 from .models import Verdict
 from .report import render_text, report_payload, verify_json_report, write_json_report, validate_report_destination, safe_text
+from .replay import replay_bundle
 from .observations import local_input
 
 EXIT_BY_VERDICT = {
@@ -36,8 +40,15 @@ def build_parser() -> argparse.ArgumentParser:
     verify_parser.add_argument("--allow-network", action="store_true", help="allow HTTP and TCP checks in a trusted specification")
     verify_parser.add_argument("--wait", type=float, default=0.0, metavar="SECONDS", help="retry until verified or the timeout expires")
     verify_parser.add_argument("--poll-interval", type=float, default=0.5, metavar="SECONDS")
+    verify_parser.add_argument("--record", type=Path, help="save raw observations and specification for offline replay")
     verify_parser.add_argument("--report", type=Path, help="write a JSON evidence report")
     verify_parser.add_argument("--json", action="store_true", help="print the JSON report instead of text")
+
+    replay_parser = sub.add_parser("replay", help="re-evaluate a recorded run offline")
+    source = replay_parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("bundle", type=Path, nargs="?")
+    source.add_argument("--example", choices=["placement"])
+    replay_parser.add_argument("--json", action="store_true")
 
     validate_parser = sub.add_parser("validate", help="validate a specification without evaluating it")
     validate_parser.add_argument("spec", type=Path)
@@ -57,6 +68,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.command == "replay":
+            bundle = Path(__file__).parent / "data" / "placement-slip.json" if args.example else args.bundle
+            report = replay_bundle(bundle)
+            print(canonical_json(report_payload(report)) if args.json else render_text(report))
+            return EXIT_BY_VERDICT[report.verdict]
         if args.command == "validate":
             load_spec(args.spec)
             print(f"VALID: {args.spec}")
@@ -93,21 +109,22 @@ def _verify_command(args: argparse.Namespace) -> int:
         if item is not None:
             source = Path(item[0]).expanduser()
             protected.append(source if source.is_absolute() else root / source)
+    if args.record:
+        validate_report_destination(args.record, protected)
+        protected.append(args.record)
     if args.report:
         validate_report_destination(args.report, protected)
-    report = verify_spec_data(
-        specification,
-        root=root,
-        allow_outside_root=args.allow_outside_root,
-        allow_command=args.allow_command,
-        allow_network=args.allow_network,
+    context = VerificationContext(args.spec, root, args.allow_outside_root, args.allow_command, args.allow_network)
+    report = verify(
+        specification, context,
         wait_seconds=args.wait,
         poll_interval=args.poll_interval,
+        record_to=args.record,
     )
     if args.report:
         write_json_report(report, args.report, protected=protected)
     if args.json:
-        print(json.dumps(report_payload(report), indent=2, sort_keys=True))
+        print(canonical_json(report_payload(report)))
     else:
         print(render_text(report))
         if args.report:

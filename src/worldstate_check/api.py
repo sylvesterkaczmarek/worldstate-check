@@ -17,6 +17,7 @@ def verify_spec(
     allow_network: bool = False,
     wait_seconds: float = 0.0,
     poll_interval: float = 0.5,
+    record_to: str | Path | None = None,
 ) -> VerificationReport:
     """Verify a WorldState Check specification file using the same engine as the CLI."""
     spec_path = Path(spec).resolve()
@@ -34,6 +35,7 @@ def verify_spec(
         context,
         wait_seconds=wait_seconds,
         poll_interval=poll_interval,
+        record_to=record_to,
     )
 
 
@@ -46,6 +48,7 @@ def verify_spec_data(
     allow_network: bool = False,
     wait_seconds: float = 0.0,
     poll_interval: float = 0.5,
+    record_to: str | Path | None = None,
 ) -> VerificationReport:
     """Verify an in-memory specification dictionary without writing a YAML file."""
     verification_root = Path(root).resolve()
@@ -61,4 +64,5 @@ def verify_spec_data(
         context,
         wait_seconds=wait_seconds,
         poll_interval=poll_interval,
+        record_to=record_to,
     )

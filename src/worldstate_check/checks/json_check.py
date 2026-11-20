@@ -4,7 +4,7 @@ from typing import Any
 
 from worldstate_check.errors import PathBoundaryError, SpecError
 from worldstate_check.models import CheckStatus, VerificationContext
-from worldstate_check.util import compare_value, extract_dotted, strict_json_loads
+from worldstate_check.util import MISSING, compare_value, field_value, strict_json_loads
 
 from .base import timed_result, unknown
 from worldstate_check.observations import resolve_evidence_path, observation, observation_text
@@ -27,14 +27,14 @@ def run_json_check(check: dict[str, Any], ctx: VerificationContext):
             return CheckStatus.FAIL, "JSON file does not exist", None, None, evidence, None
         except (OSError, UnicodeDecodeError, ValueError) as exc:
             return CheckStatus.UNKNOWN, "could not parse JSON evidence", None, None, evidence, str(exc)
-        try:
-            observed = extract_dotted(data, check["field"])
-        except KeyError:
-            return CheckStatus.FAIL, f"JSON field not found: {check['field']}", None, None, evidence, None
+        observed = field_value(data, check["field"])
+        evidence["field_present"] = observed is not MISSING
         try:
             matched, expected = compare_value(observed, check["operator"], check)
         except (ValueError, SpecError) as exc:
-            return CheckStatus.UNKNOWN, "JSON comparison could not be evaluated", None, observed, evidence, str(exc)
+            return CheckStatus.UNKNOWN, "JSON comparison could not be evaluated", None, None if observed is MISSING else observed, evidence, str(exc)
+        if check["operator"] == "exists":
+            observed = observed is not MISSING
         if matched:
             return CheckStatus.PASS, "JSON postcondition satisfied", expected, observed, evidence, None
         return CheckStatus.FAIL, "JSON postcondition not satisfied", expected, observed, evidence, None

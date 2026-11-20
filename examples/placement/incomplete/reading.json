@@ -1,0 +1,12 @@
+{
+  "ack": true,
+  "samples": [
+    {
+      "t": 0.0,
+      "id": 0,
+      "subject": "current",
+      "good": true
+    }
+  ],
+  "before": false
+}
