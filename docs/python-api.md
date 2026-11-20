@@ -83,3 +83,5 @@ serializable, and the saved-report verifier recomputes counts and verdict.
 When using the lower-level report writer, embeddings can supply protected input
 paths through its protected keyword. The CLI derives these from the specification
 automatically. The checksum is not authentication or proof of source truthfulness.
+
+Use `record_to="run.json"` with either verification function to capture raw observations. Replay with `from worldstate_check.replay import replay_bundle`, then `report = replay_bundle("run.json")`. See the [recording format and data handling guidance](observation-replay.md).

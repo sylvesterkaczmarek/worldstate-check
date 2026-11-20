@@ -11,19 +11,24 @@ import yaml
 from yaml.constructor import ConstructorError
 
 from .errors import SpecError
-from .util import _is_number, read_text_limited, validate_json_tree
+from .util import parse_timestamp, _is_number, read_text_limited, validate_json_tree
 from .safe_io import MAX_READ_BYTES
 
 MAX_SPEC_BYTES = 1_048_576
-SUPPORTED_TYPES = {"file", "json", "metric", "http", "tcp", "command"}
+SUPPORTED_TYPES = {"file", "json", "metric", "http", "tcp", "command", "window"}
 COMMON_FIELDS = {"id", "type", "required", "description"}
 ALLOWED_FIELDS = {
+    "window": COMMON_FIELDS | {"path", "series", "field", "timestamp_field", "sample_id_field", "start",
+                               "end", "max_gap_seconds", "match", "operator", "value", "values", "min",
+                               "max", "tolerance", "max_read_bytes"},
     "file": COMMON_FIELDS | {"path", "exists", "contains", "not_contains", "sha256", "max_read_bytes"},
     "json": COMMON_FIELDS | {"path", "field", "operator", "value", "values", "min", "max", "tolerance", "max_read_bytes"},
     "metric": COMMON_FIELDS | {"source", "operator", "value", "values", "min", "max", "tolerance"},
     "http": COMMON_FIELDS
     | {
         "url",
+        "redirect_to",
+        "sample",
         "status",
         "timeout_seconds",
         "text_contains",
@@ -110,6 +115,13 @@ def validate_spec(data: Any) -> None:
     seen: set[str] = set()
     for index, check in enumerate(checks):
         _validate_check(check, index, seen)
+    http_sources = {}
+    for check in checks:
+        if check["type"] == "http":
+            key = (check["url"].split("#", 1)[0], check.get("sample"))
+            options = (check.get("redirect_to"), check.get("timeout_seconds", 3.0))
+            if http_sources.setdefault(key, options) != options:
+                raise SpecError("checks sharing an HTTP sample require identical acquisition settings")
     if not any(check.get("required", True) for check in checks):
         raise SpecError("at least one check must be required")
 
@@ -138,6 +150,7 @@ def _validate_check(check: Any, index: int, seen: set[str]) -> None:
 
     validators = {
         "file": _validate_file,
+        "window": _validate_window,
         "json": _validate_json,
         "metric": _validate_metric,
         "http": _validate_http,
@@ -196,6 +209,10 @@ def _is_positive_int(value: Any) -> bool:
 def _validate_operator(check: dict[str, Any], prefix: str, required: bool = True) -> None:
     op = check.get("operator")
     if not required and op is None:
+        return
+    if op == "exists":
+        if type(check.get("value")) is not bool or check.keys() & {"values", "min", "max", "tolerance"}:
+            raise SpecError(f"{prefix}.exists requires a single boolean value")
         return
     if not isinstance(op, str) or op not in {"eq", "ne", "lt", "lte", "gt", "gte", "between", "in"}:
         raise SpecError(f"{prefix}.operator is invalid")
@@ -280,6 +297,8 @@ def _validate_metric(check: dict[str, Any], prefix: str) -> None:
         raise SpecError(f"{prefix}.source.max_age_seconds must be a finite non-negative number")
     for timestamp_key in ('timestamp_field', 'timestamp_column'):
         if timestamp_key in source:
+            if "max_age_seconds" not in source:
+                raise SpecError(f"{prefix}.source.{timestamp_key} requires max_age_seconds")
             _require_str(source, timestamp_key, f"{prefix}.source")
     if "max_age_seconds" in source:
         timestamp_key = "timestamp_field" if source_type == "json" else "timestamp_column"
@@ -299,6 +318,17 @@ def _validate_http(check: dict[str, Any], prefix: str) -> None:
         raise SpecError(f"{prefix}.url must be an absolute http or https URL")
     if port is not None and not 1 <= port <= 65535:
         raise SpecError(f"{prefix}.url port must be 1..65535")
+    if "sample" in check and not _is_safe_label(check["sample"]):
+        raise SpecError(f"{prefix}.sample must be a printable name")
+    if "redirect_to" in check:
+        _require_str(check, "redirect_to", prefix)
+        try:
+            target = urlparse(check["redirect_to"])
+            valid = target.scheme in {"http", "https"} and target.hostname and target.port != 0 and not target.fragment
+        except ValueError:
+            valid = False
+        if not valid:
+            raise SpecError(f"{prefix}.redirect_to must name an absolute HTTP(S) destination without a fragment")
     if "status" in check and (
         not isinstance(check["status"], int) or isinstance(check["status"], bool) or not 100 <= check["status"] <= 599
     ):
@@ -344,3 +374,18 @@ def _validate_command(check: dict[str, Any], prefix: str) -> None:
         raise SpecError(f"{prefix}.timeout_seconds must be a finite positive number")
     if "max_output_bytes" in check and not _is_positive_int(check["max_output_bytes"]):
         raise SpecError(f"{prefix}.max_output_bytes must be a positive integer")
+
+def _validate_window(check, prefix):
+    _validate_json(check, prefix)
+    for key in ("series", "timestamp_field", "sample_id_field"):
+        _require_str(check, key, prefix)
+    match = check.get("match", {})
+    if not isinstance(match, dict) or any(not k.strip() or type(v) not in (str, int, bool) for k, v in match.items()):
+        raise SpecError(f"{prefix}.match must map field names to scalar identities")
+    if not _is_positive_number(check.get("max_gap_seconds")):
+        raise SpecError(f"{prefix}.max_gap_seconds must be finite and positive")
+    try:
+        if parse_timestamp(check.get("end")) <= parse_timestamp(check.get("start")):
+            raise ValueError("end must follow start")
+    except (ValueError, OverflowError, OSError) as exc:
+        raise SpecError(f"{prefix} has an invalid sample window: {exc}") from exc

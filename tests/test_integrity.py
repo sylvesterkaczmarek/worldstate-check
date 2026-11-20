@@ -180,7 +180,7 @@ def test_output_collision_rejected_before_running_checks(tmp_path,monkeypatch,al
         if alias=='hardlink':os.link(source,target)
         if alias=='symlink':target.symlink_to(source)
     except OSError:pytest.skip('links unavailable')
-    monkeypatch.setattr(cli,'verify_spec_data',lambda *a,**k:pytest.fail('unsafe output was not preflighted'))
+    monkeypatch.setattr(cli,'verify',lambda *a,**k:pytest.fail('unsafe output was not preflighted'))
     assert main(['verify',str(source),'--report',str(target)])==2
     assert source.read_text()==json.dumps(spec())
 
@@ -273,8 +273,7 @@ def test_unrepresentable_socket_timeout_has_a_defined_result(tmp_path,monkeypatc
         monkeypatch.setattr(socket,'create_connection',fail)
         check={'id':'n','type':'tcp','host':'127.0.0.1','port':1,'reachable':False,'timeout_seconds':1e308}
     else:
-        import urllib.request
-        monkeypatch.setattr(urllib.request,'urlopen',fail)
+        monkeypatch.setattr('worldstate_check.checks.http._open_response', fail)
         check={'id':'n','type':'http','url':'http://127.0.0.1:1','status':200,'timeout_seconds':1e308}
     assert verify_spec_data(spec(check),root=tmp_path,allow_network=True).verdict is Verdict.UNCERTAIN
 

@@ -36,10 +36,10 @@ def test_json_nested_field_passes(tmp_path):
     assert result.status is CheckStatus.PASS
 
 
-def test_json_missing_field_fails(tmp_path):
+def test_json_missing_measurement_is_unknown(tmp_path):
     (tmp_path / "s.json").write_text("{}", encoding="utf-8")
     result = run_json_check({"id": "j", "type": "json", "path": "s.json", "field": "a.b", "operator": "eq", "value": 3}, ctx(tmp_path))
-    assert result.status is CheckStatus.FAIL
+    assert result.status is CheckStatus.UNKNOWN
 
 
 def test_invalid_json_is_unknown(tmp_path):

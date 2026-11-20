@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3 development
+
+- Share HTTP response bytes per attempt and make redirects explicit.
+- Align field-presence and missing-value semantics. Validate freshness declarations.
+- Export bounded values, record acquisitions and replay all seven check types offline.
+- Add sampled intervals, an optional Inspect scorer and the paired outcomes pilot.
+- See the [migration and replay guide](docs/observation-replay.md) for changes affecting existing specifications.
+
 ## 0.2.0
 
 5 November 2026. Verified observation and evidence integrity release.

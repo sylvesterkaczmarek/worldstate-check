@@ -7,77 +7,34 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-**Verify that an autonomous action changed the world as intended.**
+**Check whether observed state satisfies the conditions an agent claims it achieved.**
 
-WorldState Check is a CLI-first deterministic postcondition verification tool for AI agents, automation, robots, and autonomous systems, with a small Python API for embedding the same verification engine in other software. It evaluates explicit postconditions against independent observations, distinguishes a successful command from a verified outcome, and produces a structured evidence report without requiring an LLM judge.
+A rollout serves healthy v1, then unhealthy v2. Checking health on the first request and version on the second can report a healthy v2 that nobody observed. WorldState Check evaluates both predicates against one HTTP response per attempt. The operator can inspect which reading determined the verdict.
 
-## November reliability release
+The CLI and Python API check files, JSON, services and telemetry. A report records the decision. An optional recording retains the evidence needed to recompute it offline.
 
-Version **0.2.0** adds independently tested observation and report integrity. Local file,
-JSON and telemetry checks now share one bounded observation per source and attempt,
-so incompatible versions cannot jointly establish success. Reports record the
-normalized specification hash and source fingerprints. Input protection, command
-capture and saved-report validation are strengthened.
+## Try a recorded robot placement
 
-The separate [release review](docs/independent-review-2026-11-05.md) covers incomplete
-HTTP responses, conjunctive telemetry failures, report contradictions and file-read
-consistency. See the [migration notes](docs/migration-0.2.md) and
-[release notes](docs/release-0.2.0.md).
-
-Run the [eight-case offline demonstration](docs/verification.md) from an installed
-source checkout:
+Install this development revision from a checkout with `python -m pip install .`, then run:
 
 ```bash
-python scripts/showcase.py --out /tmp/worldstate-showcase-new
+worldstate-check replay --example placement
 ```
 
-See the [audit and compatibility record](docs/audit-2026-11-05.md). No merge or
-publication is part of this implementation pass.
+The cube starts in the target region and slips after the simulated gripper withdraws. The verifier returns `NOT_VERIFIED` (exit 1). This example runs from the installed wheel, offline, without the simulator.
 
-## At a glance
+To capture and replay your own verification:
 
-```text
-INTENT
-  |
-ACTION
-  |
-ACKNOWLEDGEMENT
-  |
-OBSERVED WORLD STATE
-  |
-POSTCONDITIONS
-  |
-VERIFIED / NOT_VERIFIED / UNCERTAIN
+```bash
+worldstate-check verify examples/field-maintenance.yaml --record pump-run.json
+worldstate-check replay pump-run.json --json
 ```
 
-A tool call returning success is not the same as the requested state being achieved.
+Recordings contain raw inputs, including the specification and any captured command output. Choose an evaluator-owned observation source and storage appropriate for those inputs. [Replay and migration](docs/observation-replay.md)
 
-```text
-Agent: "Safe mode entered."
+## Research pilot
 
-$ worldstate-check demo
-
-[PASS   ] command-ack
-[PASS   ] payload-power
-[FAIL   ] attitude-error
-[PASS   ] battery-soc
-
-VERDICT: NOT_VERIFIED
-Required checks: 3/4 passed
-```
-
-The command was acknowledged and the payload was powered down, but the synthetic attitude error remained outside the required bound.
-
-## Why this is useful
-
-The same verification pattern applies across software and physical autonomy:
-
-- an agent says a deployment succeeded, but the health endpoint still fails;
-- a maintenance workflow closes a job, but the measured equipment state remains outside limits;
-- a spacecraft accepts a safe-mode command, but telemetry shows the required attitude was not reached;
-- an automation reports completion, but the expected file, process, API state, or database-facing evidence is absent.
-
-WorldState Check makes the success condition explicit and evaluates observable state instead of trusting the actor's completion claim.
+A paired deployment and MuJoCo placement pilot tests which observations distinguish a completed task from one that only looks complete. It includes 66 labelled episodes, four evidence views, five methods and the full per-episode decisions. The sampled-window checker reduced false acceptances on the held-out families and also abstained on genuine successes. An equally informed hand-written checker matched its decisions. [Methods, results and reproduction](research/paired_outcomes/README.md) · [Inspect AI example](examples/inspect/task.py)
 
 ## Check types
 
@@ -86,6 +43,7 @@ WorldState Check makes the success condition explicit and evaluates observable s
 | `file` | existence, text assertions, SHA-256 |
 | `json` | structured state through deterministic field comparisons |
 | `metric` | JSON or CSV telemetry, thresholds, ranges, freshness |
+| `window` | a predicate over attributable, distinct samples across a specified interval |
 | `http` | status, response text, JSON response state; network access is opt-in |
 | `tcp` | endpoint reachability; network access is opt-in |
 | `command` | explicit verification commands, opt-in only |
@@ -242,7 +200,7 @@ See [docs/specification.md](docs/specification.md) for all supported checks.
 ## Observation consistency
 
 Checks reading the same resolved local file within one attempt share its captured
-bytes. Later retries reacquire evidence. This is per-source consistency, without
+bytes. HTTP checks on the same URL and sample share one response. Later retries reacquire evidence. This is per-source consistency, without
 an atomic snapshot across different sources or a guarantee about state after the
 observation. Command/network operations remain opt-in.
 
@@ -310,7 +268,7 @@ The first is expected to verify. The second is intentionally expected to return 
 JSON reports include:
 
 - task and final verdict;
-- every expected and observed value;
+- expected and observed values, with digest references for large values;
 - required versus optional checks;
 - timing and attempt count;
 - source metadata such as evidence path, endpoint, or telemetry age;

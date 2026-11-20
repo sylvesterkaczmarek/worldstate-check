@@ -10,9 +10,10 @@ from typing import Any
 
 from .checks import CHECK_RUNNERS
 from .loader import validate_spec
+from .replay import Recorder
 from .observations import ObservationSession
 from .util import canonical_json
-from .models import CheckResult, CheckStatus, VerificationContext, VerificationReport, Verdict
+from .models import REPORT_SCHEMA, CheckResult, CheckStatus, VerificationContext, VerificationReport, Verdict
 
 
 def evaluate_once(spec: dict[str, Any], ctx: VerificationContext) -> list[CheckResult]:
@@ -43,6 +44,7 @@ def verify(
     *,
     wait_seconds: float = 0.0,
     poll_interval: float = 0.5,
+    record_to=None,
 ) -> VerificationReport:
     validate_spec(spec)
     spec = deepcopy(spec)
@@ -62,9 +64,13 @@ def verify(
     attempts = 0
     results: list[CheckResult] = []
 
+    recorder = Recorder(record_to, spec, ctx) if record_to is not None else None
     while True:
         attempts += 1
-        results = evaluate_once(spec, ctx)
+        context = replace(ctx, _frame=recorder.start()) if recorder else ctx
+        results = evaluate_once(spec, context)
+        if recorder:
+            recorder.finish_attempt(results)
         verdict = derive_verdict(results)
         if verdict is Verdict.VERIFIED:
             break
@@ -74,8 +80,8 @@ def verify(
         time.sleep(min(poll_interval, max(0.0, deadline - now)))
 
     finished_wall = datetime.now(timezone.utc)
-    return VerificationReport(
-        schema_version=1,
+    report = VerificationReport(
+        schema_version=REPORT_SCHEMA,
         task=spec["task"],
         verdict=derive_verdict(results),
         started_at=started_wall.isoformat().replace("+00:00", "Z"),
@@ -85,3 +91,6 @@ def verify(
         results=results,
         specification_sha256=specification_sha256,
     )
+    if recorder:
+        recorder.save(report)
+    return report

@@ -46,7 +46,7 @@ def evidence_path(path: Path, root: Path) -> str:
         relative = path.relative_to(root)
     except ValueError:
         return str(path)
-    return str(relative) if str(relative) else "."
+    return relative.as_posix()
 
 
 def redact_url_for_evidence(raw: str) -> str:
@@ -78,7 +78,7 @@ def read_text_limited(path: Path, max_bytes: int) -> str:
     return raw.decode("utf-8")
 
 
-def strict_json_loads(raw: str) -> Any:
+def strict_json_loads(raw: str, *, max_nodes=100000, max_depth=64) -> Any:
     if raw.startswith("\ufeff"):
         raw = raw[1:]
 
@@ -106,7 +106,7 @@ def strict_json_loads(raw: str) -> Any:
         parse_float=finite_float,
         object_pairs_hook=unique_object,
         )
-        validate_json_tree(result)
+        validate_json_tree(result, max_nodes=max_nodes, max_depth=max_depth)
         return result
     except (RecursionError, UnicodeError) as exc:
         raise ValueError('invalid or excessively nested JSON evidence') from exc
@@ -161,7 +161,21 @@ def extract_dotted(data: Any, path: str) -> Any:
     return current
 
 
+MISSING = object()
+
+
+def field_value(data, path):
+    try:
+        return extract_dotted(data, path)
+    except KeyError:
+        return MISSING
+
+
 def compare_value(observed: Any, operator: str, spec: dict[str, Any]) -> tuple[bool, Any]:
+    if operator == "exists":
+        return (observed is not MISSING) == spec["value"], spec["value"]
+    if observed is MISSING:
+        raise ValueError("field is missing from the observation")
     if operator in {"eq", "ne"}:
         expected = spec.get("value")
         tolerance = spec.get("tolerance")

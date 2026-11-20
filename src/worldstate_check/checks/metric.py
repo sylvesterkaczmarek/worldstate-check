@@ -3,7 +3,6 @@ from __future__ import annotations
 import csv
 import io
 import math
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +11,8 @@ from worldstate_check.models import CheckStatus, VerificationContext
 from worldstate_check.util import (
     compare_value,
     extract_dotted,
+    MISSING,
+    parse_timestamp,
     freshness_age_seconds,
     read_text_limited,
     strict_json_loads,
@@ -21,7 +22,7 @@ from .base import timed_result, unknown
 from worldstate_check.observations import resolve_evidence_path, observation, observation_text
 
 DEFAULT_MAX_TELEMETRY_BYTES = 16 * 1024 * 1024
-_MISSING_VALUE = object()
+
 
 
 def run_metric_check(check: dict[str, Any], ctx: VerificationContext):
@@ -45,20 +46,21 @@ def run_metric_check(check: dict[str, Any], ctx: VerificationContext):
         failures, errors = [], []
         expected = None
         try:
-            if observed is _MISSING_VALUE:
-                raise ValueError("metric value is missing from the observation")
             matched, expected = compare_value(observed, check["operator"], check)
             if not matched:
                 failures.append("metric postcondition not satisfied")
         except (ValueError, SpecError) as exc:
             errors.append(f"metric comparison could not be evaluated: {exc}")
 
-        result_observed = None if observed is _MISSING_VALUE else observed
+        evidence["field_present"] = observed is not MISSING
+        result_observed = None if observed is MISSING else observed
+        if check["operator"] == "exists":
+            result_observed = observed is not MISSING
         if "max_age_seconds" in source:
             evidence["observed_timestamp"] = timestamp_value
             evidence["max_age_seconds"] = source["max_age_seconds"]
             try:
-                age = freshness_age_seconds(timestamp_value, datetime.now(timezone.utc))
+                age = freshness_age_seconds(timestamp_value, parse_timestamp(item.observed_at))
             except (ValueError, OSError, OverflowError) as exc:
                 errors.append(f"could not evaluate telemetry freshness: {exc}")
             else:
@@ -82,7 +84,7 @@ def _read_source(path: Path, source: dict[str, Any], *, raw=None) -> tuple[Any, 
         try:
             observed = extract_dotted(data, source["field"])
         except KeyError:
-            observed = _MISSING_VALUE
+            observed = MISSING
         timestamp = None
         if "max_age_seconds" in source:
             try:
@@ -102,7 +104,7 @@ def _read_source(path: Path, source: dict[str, Any], *, raw=None) -> tuple[Any, 
             raise ValueError("CSV telemetry row does not match the complete header")
     if row is None:
         raise ValueError("CSV telemetry source has no data rows")
-    observed = _coerce_scalar(row[source["column"]]) if source["column"] in row else _MISSING_VALUE
+    observed = _coerce_scalar(row[source["column"]]) if source["column"] in row else MISSING
     timestamp = row.get(source["timestamp_column"]) if "max_age_seconds" in source else None
     return observed, timestamp
 

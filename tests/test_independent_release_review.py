@@ -127,7 +127,11 @@ def test_rehashed_invalid_metadata_is_rejected(tmp_path, field, value):
 
 
 def test_consistent_legacy_report_remains_readable(tmp_path):
-    raw = base_report(tmp_path).to_dict(); raw.pop('specification_sha256')
+    raw = base_report(tmp_path).to_dict()
+    raw["schema_version"] = 1
+    for row in raw["results"]:
+        row.pop("reason_code")
+    raw.pop('specification_sha256')
     path=tmp_path/'report.json';save_rehashed(path,raw)
     assert verify_json_report(path)
 

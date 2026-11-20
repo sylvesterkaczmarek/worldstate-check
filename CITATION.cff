@@ -5,8 +5,10 @@ type: software
 authors:
   - family-names: Kaczmarek
     given-names: Sylvester
-version: 0.2.0
-date-released: 2026-11-05
+version: 0.3.0.dev1
+abstract: >-
+  Deterministic postcondition checks, offline observation replay, and a paired
+  deployment and MuJoCo placement pilot for evaluating completion claims.
 repository-code: "https://github.com/sylvesterkaczmarek/worldstate-check"
 url: "https://github.com/sylvesterkaczmarek/worldstate-check"
 license: MIT

@@ -1,13 +1,21 @@
-"""One bounded local-file observation per resolved path and evaluation attempt."""
+"""Shared file and HTTP observations and their per-attempt byte budget."""
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import hashlib
 import stat
 
+from .journal import sample, ReplayError
 from .errors import PathBoundaryError
 from .safe_io import MAX_READ_BYTES, read_regular_bytes, stat_regular_path
 from .util import evidence_path, resolve_path
+
+
+@dataclass(frozen=True)
+class RecordedPath:
+    # Logical identity from the original filesystem. Different source paths can
+    # coincide under the case or separator rules of the replay host.
+    label: str
 
 
 @dataclass(frozen=True)
@@ -21,7 +29,8 @@ class FileObservation:
     sha256: str | None = None
 
     def evidence(self, path, root):
-        result = {'path': evidence_path(path, root), 'observed_at': self.observed_at}
+        label = path.label if isinstance(path, RecordedPath) else evidence_path(path, root)
+        result = {'path': label, 'observed_at': self.observed_at}
         if self.size is not None: result['size_bytes'] = self.size
         if self.sha256 is not None: result['source_sha256'] = self.sha256
         return result
@@ -49,7 +58,7 @@ def local_input(check):
     if check['type'] == 'file':
         content = any(key in check for key in ('contains','not_contains','sha256'))
         return check['path'], check.get('max_read_bytes', 1_048_576) if content else 0
-    if check['type'] == 'json': return check['path'], check.get('max_read_bytes', 1_048_576)
+    if check['type'] in ('json', 'window'): return check['path'], check.get('max_read_bytes', 1_048_576)
     if check['type'] == 'metric':
         source = check['source']
         return source['path'], source.get('max_read_bytes', 16 * 1024 * 1024)
@@ -58,6 +67,9 @@ def local_input(check):
 
 class ObservationSession:
     def __init__(self, spec, ctx):
+        self.ctx = ctx
+        self.http = {}
+        self.origins = {}
         self.paths = {}
         self.limits = {}
         self.observed = {}
@@ -66,22 +78,48 @@ class ObservationSession:
             item = local_input(check)
             if item is None: continue
             raw, limit = item
-            try:
-                path = resolve_path(ctx.root, raw, ctx.allow_outside_root)
-            except (ValueError, PathBoundaryError) as exc:
-                self.paths[raw] = exc
+            if raw not in self.paths:
+                def resolve():
+                    try:
+                        resolved = resolve_path(ctx.root, raw, ctx.allow_outside_root)
+                        return {"path": evidence_path(resolved, ctx.root), "error": None}
+                    except (ValueError, PathBoundaryError) as exc:
+                        return {"path": None, "error": str(exc)}
+
+                binding = sample(ctx, "path", raw, resolve)
+                if binding["error"] is not None:
+                    self.paths[raw] = PathBoundaryError(binding["error"])
+                elif ctx._frame is not None and ctx._frame.replay:
+                    self.paths[raw] = RecordedPath(binding["path"])
+                else:
+                    self.paths[raw] = ctx.root / binding["path"]
+            path = self.paths[raw]
+            if isinstance(path, Exception):
                 continue
-            self.paths[raw] = path
+            self.origins.setdefault(path, raw)
             self.limits[path] = max(self.limits.get(path, 0), limit)
+
+    @property
+    def remaining_bytes(self):
+        return MAX_READ_BYTES - self.retained_bytes
 
     def get(self, path):
         if path not in self.observed:
             limit = self.limits[path]
-            remaining = MAX_READ_BYTES - self.retained_bytes
-            if limit and remaining <= 0:
-                item = FileObservation(None, False, None, 'per-attempt evidence budget exhausted', datetime.now(timezone.utc).isoformat())
-            else:
-                item = capture(path, min(limit, remaining) if limit else 0)
+            def collect():
+                if limit and self.remaining_bytes <= 0:
+                    item = FileObservation(None, False, None, "per-attempt evidence budget exhausted",
+                                           datetime.now(timezone.utc).isoformat())
+                else:
+                    item = capture(path, min(limit, self.remaining_bytes) if limit else 0)
+                return asdict(item)
+
+            item = FileObservation(**sample(self.ctx, "file", self.origins[path], collect))
+            if self.ctx._frame is not None and self.ctx._frame.replay and item.raw is not None:
+                if (item.exists is not True or item.regular is not True or item.error is not None
+                        or len(item.raw) != item.size or len(item.raw) > min(limit, self.remaining_bytes)
+                        or hashlib.sha256(item.raw).hexdigest() != item.sha256):
+                    raise ReplayError("recorded file bytes disagree with their metadata")
             if item.raw is not None: self.retained_bytes += len(item.raw)
             self.observed[path] = item
         return self.observed[path]
