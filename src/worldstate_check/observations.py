@@ -79,25 +79,30 @@ class ObservationSession:
             if item is None: continue
             raw, limit = item
             if raw not in self.paths:
-                def resolve():
-                    try:
-                        resolved = resolve_path(ctx.root, raw, ctx.allow_outside_root)
-                        return {"path": evidence_path(resolved, ctx.root), "error": None}
-                    except (ValueError, PathBoundaryError) as exc:
-                        return {"path": None, "error": str(exc)}
-
-                binding = sample(ctx, "path", raw, resolve)
-                if binding["error"] is not None:
-                    self.paths[raw] = PathBoundaryError(binding["error"])
-                elif ctx._frame is not None and ctx._frame.replay:
-                    self.paths[raw] = RecordedPath(binding["path"])
-                else:
-                    self.paths[raw] = ctx.root / binding["path"]
+                self.paths[raw] = self.bind_path(ctx, raw)
             path = self.paths[raw]
             if isinstance(path, Exception):
                 continue
             self.origins.setdefault(path, raw)
             self.limits[path] = max(self.limits.get(path, 0), limit)
+
+    @staticmethod
+    def bind_path(ctx, raw):
+        if ctx._frame is not None and ctx._frame.replay:
+            binding = ctx._frame.sample("path", raw, None)
+            if binding["error"] is not None:
+                return PathBoundaryError(binding["error"])
+            return RecordedPath(binding["path"])
+        try:
+            resolved = resolve_path(ctx.root, raw, ctx.allow_outside_root)
+        except (ValueError, PathBoundaryError) as exc:
+            binding = {"path": None, "error": str(exc)}
+            resolved = PathBoundaryError(str(exc))
+        else:
+            binding = {"path": evidence_path(resolved, ctx.root), "error": None}
+        if ctx._frame is not None:
+            ctx._frame.sample("path", raw, lambda: binding)
+        return resolved
 
     @property
     def remaining_bytes(self):

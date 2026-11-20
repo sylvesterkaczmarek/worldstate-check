@@ -359,3 +359,24 @@ def test_sample_window(tmp_path, times, ids, values, verdict):
 def test_installed_example(capsys):
     assert main(["replay", "--example", "placement", "--json"]) == 1
     assert json.loads(capsys.readouterr().out)["verdict"] == "NOT_VERIFIED"
+
+
+def test_engine_preserves_resolved_acquisition_path_under_root_alias(tmp_path):
+    from worldstate_check.engine import verify
+    from worldstate_check.models import VerificationContext
+
+    actual = tmp_path / "actual"
+    actual.mkdir()
+    (actual / "reading").write_text("ok")
+    alias = tmp_path / "alias"
+    try:
+        alias.symlink_to(actual, target_is_directory=True)
+    except OSError:
+        pytest.skip("directory aliases unavailable")
+    ctx = VerificationContext(alias / "spec", alias)
+    bundle = tmp_path / "recording"
+    checks = spec({"id": "marker", "type": "file", "path": "reading", "contains": "ok"})
+    report = verify(checks, ctx, record_to=bundle)
+    assert report.verdict is Verdict.VERIFIED
+    assert report.results[0].evidence["path"] == "reading"
+    assert replay_bundle(bundle).verdict is Verdict.VERIFIED
