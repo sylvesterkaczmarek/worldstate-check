@@ -21,4 +21,6 @@ The release includes the protocol, 66 labelled episodes, reference scorer, basel
 
 ## Citation
 
-Kaczmarek, S. (2026). *WorldState Check* (version 0.3.0) [Computer software]. [GitHub release](https://github.com/sylvesterkaczmarek/worldstate-check/releases/tag/v0.3.0).
+Kaczmarek, S. (2026). *WorldState Check* (Version 0.3.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.24410083
+
+[Archived source and research materials](https://zenodo.org/records/24410083) · [GitHub release](https://github.com/sylvesterkaczmarek/worldstate-check/releases/tag/v0.3.0) · [DOI for all versions](https://doi.org/10.5281/zenodo.24410082).
