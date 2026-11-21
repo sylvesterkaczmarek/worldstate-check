@@ -17,11 +17,12 @@ class ReplayError(ValueError):
 
 
 class Frame:
-    def __init__(self, events, *, replay=False, budget=None):
+    def __init__(self, events, *, replay=False, budget=None, legacy_window_identity=False):
         self.events = events
         self.replay = replay
         self.position = 0
         self.budget = budget
+        self.legacy_window_identity = legacy_window_identity
 
     def sample(self, kind: str, key: str, collect: Callable):
         if self.replay:

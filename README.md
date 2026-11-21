@@ -15,15 +15,16 @@ The CLI and Python API check files, JSON, services and telemetry. A report recor
 
 ## Try a recorded robot placement
 
-Install this development revision from a checkout with `python -m pip install .`, then run:
+In a fresh Python 3.10+ environment, install the current GitHub revision and replay the bundled trace:
 
 ```bash
+python -m pip install "git+https://github.com/sylvesterkaczmarek/worldstate-check.git@main"
 worldstate-check replay --example placement
 ```
 
-The cube starts in the target region and slips after the simulated gripper withdraws. The verifier returns `NOT_VERIFIED` (exit 1). This example runs from the installed wheel, offline, without the simulator.
+The cube starts in the target region and slips after the simulated gripper withdraws. The verifier returns `NOT_VERIFIED` (exit 1) and identifies sample 100 at 0.5 seconds as the first reading where `good` was false. This example runs from the installed wheel, offline, without the simulator.
 
-To capture and replay your own verification:
+From a source checkout, record and replay a passing maintenance example:
 
 ```bash
 worldstate-check verify examples/field-maintenance.yaml --record pump-run.json
@@ -56,7 +57,7 @@ Required checks produce one of three verdicts:
 
 ## Quick start
 
-For a standalone command-line installation, use pipx:
+PyPI version 0.2.0 provides the original checks and synthetic demos. The sampled-window check and offline replay are available from the GitHub installation above. For a standalone installation of the PyPI release:
 
 ```bash
 pipx install worldstate-check
@@ -104,11 +105,14 @@ Validate it without touching any evidence source:
 worldstate-check validate worldstate.yaml
 ```
 
-Then verify the observed state:
+The starter reads `result.json` beside the specification. In a new example directory, create a synthetic completed result, then verify it:
 
 ```bash
+python -c "import json; json.dump({'status': 'complete'}, open('result.json', 'x'))"
 worldstate-check verify worldstate.yaml
 ```
+
+Both required checks should pass. For your own task, point the specification at evidence collected from the system under test.
 
 Specifications that intentionally contact HTTP or TCP endpoints must opt in:
 
@@ -312,8 +316,7 @@ worldstate-check/
 ## Development
 
 ```bash
-python -m pip install -e .
-python -m pip install pytest
+python -m pip install -e '.[dev]'
 pytest
 ```
 

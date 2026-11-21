@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: Kaczmarek
     given-names: Sylvester
-version: 0.3.0.dev1
+version: 0.3.0.dev2
 abstract: >-
   Deterministic postcondition checks, offline observation replay, and a paired
   deployment and MuJoCo placement pilot for evaluating completion claims.

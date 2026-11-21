@@ -358,7 +358,16 @@ def test_sample_window(tmp_path, times, ids, values, verdict):
 
 def test_installed_example(capsys):
     assert main(["replay", "--example", "placement", "--json"]) == 1
-    assert json.loads(capsys.readouterr().out)["verdict"] == "NOT_VERIFIED"
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["verdict"] == "NOT_VERIFIED"
+    result = payload["results"][0]
+    assert result["observed"]["first_violation"] == {
+        "sample_id": 100,
+        "timestamp": 0.5,
+        "field_present": True,
+        "value": False,
+    }
+    assert result["expected"]["field"] == "good" and result["expected"]["value"] is True
 
 
 def test_engine_preserves_resolved_acquisition_path_under_root_alias(tmp_path):
@@ -380,3 +389,143 @@ def test_engine_preserves_resolved_acquisition_path_under_root_alias(tmp_path):
     assert report.verdict is Verdict.VERIFIED
     assert report.results[0].evidence["path"] == "reading"
     assert replay_bundle(bundle).verdict is Verdict.VERIFIED
+
+
+def placement_check():
+    return {
+        "id": "stable",
+        "type": "window",
+        "path": "state",
+        "series": "samples",
+        "timestamp_field": "t",
+        "sample_id_field": "id",
+        "start": 0,
+        "end": 1,
+        "max_gap_seconds": 1,
+        "field": "good",
+        "operator": "eq",
+        "value": True,
+    }
+
+
+@pytest.mark.parametrize("bad_first", [True, False])
+@pytest.mark.parametrize("independent_failure", [True, False])
+def test_conflicting_duplicate_can_neither_establish_nor_conceal_failure(
+    tmp_path, bad_first, independent_failure
+):
+    rows = [
+        {"t": 0, "id": "start", "good": True},
+        {"t": 0.5, "id": "repeat", "good": not bad_first},
+        {"t": 0.5, "id": "repeat", "good": bad_first},
+        {"t": 1, "id": "end", "good": not independent_failure},
+    ]
+    (tmp_path / "state").write_text(json.dumps({"samples": rows}))
+    bundle = tmp_path / "run.json"
+    live = verify_spec_data(spec(placement_check()), root=tmp_path, record_to=bundle)
+    result = live.results[0]
+    assert result.observed["samples"] == 2
+    assert live.verdict is (
+        Verdict.NOT_VERIFIED if independent_failure else Verdict.UNCERTAIN
+    )
+    assert "repeated sample ID" in result.error
+    if independent_failure:
+        assert result.observed["first_violation"]["sample_id"] == "end"
+    assert replay_bundle(bundle).verdict is live.verdict
+
+    # Evaluator 1 used the first copy, so the same inputs can have a different recorded outcome.
+    historical = json.loads(bundle.read_text())
+    assert historical["evaluator"] == 2
+    failed = bad_first or independent_failure
+    historical["evaluator"] = 1
+    historical["verdict"] = "NOT_VERIFIED" if failed else "UNCERTAIN"
+    historical["attempts"][0]["decisions"] = [
+        ["stable", "FAIL", "postcondition_failed"]
+        if failed
+        else ["stable", "UNKNOWN", "incomplete_window"]
+    ]
+    del historical["sha256"]
+    historical["sha256"] = fingerprint(historical)
+    assert replay_data(historical).verdict.value == historical["verdict"]
+
+
+@pytest.mark.parametrize(
+    "extra,verdict",
+    [
+        ({"robot": "other"}, Verdict.VERIFIED),
+        ({"t": -1}, Verdict.VERIFIED),
+        ({"t": 0.5, "robot": "current"}, Verdict.UNCERTAIN),
+    ],
+)
+def test_window_only_requires_bindings_for_potentially_relevant_rows(
+    tmp_path, extra, verdict
+):
+    check = {**placement_check(), "match": {"robot": "current", "run": 4}}
+    rows = [
+        {"robot": "current", "run": 4, "t": t, "id": t, "good": True} for t in (0, 1)
+    ]
+    (tmp_path / "state").write_text(json.dumps({"samples": [extra, *rows]}))
+    assert verify_spec_data(spec(check), root=tmp_path).verdict is verdict
+
+
+def test_window_presence_failure_only_reports_presence(tmp_path):
+    check = {**placement_check(), "operator": "exists", "value": False}
+    rows = [{"t": 0, "id": "a", "good": "private reading"}, {"t": 1, "id": "b"}]
+    (tmp_path / "state").write_text(json.dumps({"samples": rows}))
+    report = verify_spec_data(spec(check), root=tmp_path)
+    assert report.verdict is Verdict.NOT_VERIFIED
+    assert report.results[0].observed["first_violation"] == {
+        "timestamp": 0,
+        "sample_id": "a",
+        "field_present": True,
+    }
+
+
+def test_text_and_json_share_failed_value_reference(tmp_path, capsys):
+    values = [0] * 50000
+    (tmp_path / "state").write_text(json.dumps({"samples": values}))
+    path = tmp_path / "check.json"
+    path.write_text(
+        json.dumps(
+            spec(
+                {
+                    "id": "reading",
+                    "type": "json",
+                    "path": "state",
+                    "field": "samples",
+                    "operator": "eq",
+                    "value": [],
+                }
+            )
+        )
+    )
+    assert main(["verify", str(path)]) == 1
+    text = capsys.readouterr().out
+    assert main(["verify", str(path), "--json"]) == 1
+    row = json.loads(capsys.readouterr().out)["results"][0]
+    reference = row["evidence"]["value_references"]["observed"]
+    assert reference["sha256"] in text and str(reference["size_bytes"]) in text
+    assert len(text) < 1024
+
+    (tmp_path / "state").write_text("{}")
+    assert main(["verify", str(path)]) == 2
+    assert "field is missing" in capsys.readouterr().out
+
+
+def test_saved_report_rejects_reason_that_contradicts_status(tmp_path):
+    check = {
+        "type": "json",
+        "id": "v",
+        "path": "state",
+        "field": "v",
+        "operator": "eq",
+        "value": 0,
+    }
+    (tmp_path / "state").write_text("{}")
+    payload = report_payload(verify_spec_data(spec(check), root=tmp_path))
+    assert payload["results"][0]["status"] == "UNKNOWN"
+    del payload["report_sha256"]
+    payload["results"][0]["reason_code"] = "postcondition_failed"
+    payload["report_sha256"] = fingerprint(payload)
+    saved = tmp_path / "report.json"
+    saved.write_text(json.dumps(payload))
+    assert not verify_json_report(saved)

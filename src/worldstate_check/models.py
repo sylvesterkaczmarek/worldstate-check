@@ -109,6 +109,10 @@ class VerificationReport:
         return sum(r.required and r.status is CheckStatus.PASS for r in self.results)
 
     @property
+    def inline_value_bytes(self) -> int:
+        return min(4096, 1_000_000 // max(1, len(self.results)))
+
+    @property
     def required_total(self) -> int:
         return sum(r.required for r in self.results)
 
@@ -123,7 +127,7 @@ class VerificationReport:
             "attempts": self.attempts,
             "required_passed": self.required_passed,
             "required_total": self.required_total,
-            "results": [r.to_dict(schema=self.schema_version, inline_bytes=min(4096, 1_000_000 // max(1, len(self.results))))
+            "results": [r.to_dict(schema=self.schema_version, inline_bytes=self.inline_value_bytes)
                         for r in self.results],
             "specification_sha256": self.specification_sha256,
         }

@@ -6,6 +6,8 @@
 - Align field-presence and missing-value semantics. Validate freshness declarations.
 - Export bounded values, record acquisitions and replay all seven check types offline.
 - Add sampled intervals, an optional Inspect scorer and the paired outcomes pilot.
+- Exclude ambiguous repeated sample IDs, report the first attributable violation and replay older recordings under their original rules.
+- Use the same value digests in terminal output and JSON when a failed comparison is too large to display inline.
 - See the [migration and replay guide](docs/observation-replay.md) for changes affecting existing specifications.
 
 ## 0.2.0
