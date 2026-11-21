@@ -1,6 +1,6 @@
 # WorldState Check
 
-![WorldState Check](assets/social/github-social-card-worldstate-check.png)
+![WorldState Check](https://raw.githubusercontent.com/sylvesterkaczmarek/worldstate-check/v0.3.0/assets/social/github-social-card-worldstate-check.png)
 
 [![CI](https://github.com/sylvesterkaczmarek/worldstate-check/actions/workflows/ci.yml/badge.svg)](https://github.com/sylvesterkaczmarek/worldstate-check/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/worldstate-check.svg)](https://pypi.org/project/worldstate-check/)
@@ -15,10 +15,10 @@ The CLI and Python API check files, JSON, services and telemetry. A report recor
 
 ## Try a recorded robot placement
 
-In a fresh Python 3.10+ environment, install the current GitHub revision and replay the bundled trace:
+In a fresh Python 3.10+ environment, install version 0.3.0 and replay the bundled trace:
 
 ```bash
-python -m pip install "git+https://github.com/sylvesterkaczmarek/worldstate-check.git@main"
+python -m pip install worldstate-check==0.3.0
 worldstate-check replay --example placement
 ```
 
@@ -31,11 +31,11 @@ worldstate-check verify examples/field-maintenance.yaml --record pump-run.json
 worldstate-check replay pump-run.json --json
 ```
 
-Recordings contain raw inputs, including the specification and any captured command output. Choose an evaluator-owned observation source and storage appropriate for those inputs. [Replay and migration](docs/observation-replay.md)
+Recordings contain raw inputs, including the specification and any captured command output. Choose an evaluator-owned observation source and storage appropriate for those inputs. [Replay and migration](https://github.com/sylvesterkaczmarek/worldstate-check/blob/v0.3.0/docs/observation-replay.md)
 
 ## Research pilot
 
-A paired deployment and MuJoCo placement pilot tests which observations distinguish a completed task from one that only looks complete. It includes 66 labelled episodes, four evidence views, five methods and the full per-episode decisions. The sampled-window checker reduced false acceptances on the held-out families and also abstained on genuine successes. An equally informed hand-written checker matched its decisions. [Methods, results and reproduction](research/paired_outcomes/README.md) · [Inspect AI example](examples/inspect/task.py)
+A paired deployment and MuJoCo placement pilot tests which observations distinguish a completed task from one that only looks complete. It includes 66 labelled episodes, four evidence views, five methods and the full per-episode decisions. The sampled-window checker reduced false acceptances on the held-out families and also abstained on genuine successes. An equally informed hand-written checker matched its decisions. [Methods, results and reproduction](https://github.com/sylvesterkaczmarek/worldstate-check/blob/v0.3.0/research/paired_outcomes/README.md) · [Inspect AI example](https://github.com/sylvesterkaczmarek/worldstate-check/blob/v0.3.0/examples/inspect/task.py)
 
 ## Check types
 
@@ -57,7 +57,7 @@ Required checks produce one of three verdicts:
 
 ## Quick start
 
-PyPI version 0.2.0 provides the original checks and synthetic demos. The sampled-window check and offline replay are available from the GitHub installation above. For a standalone installation of the PyPI release:
+For a standalone installation from PyPI:
 
 ```bash
 pipx install worldstate-check
@@ -164,7 +164,7 @@ specification = {
 report = verify_spec_data(specification, root="./evidence")
 ```
 
-Both APIs use the same verification context, safety defaults, and deterministic engine as `worldstate-check verify`. Command checks, network checks, and paths outside the verification root remain opt-in. See [docs/python-api.md](docs/python-api.md) for additional embedding examples.
+Both APIs use the same verification context, safety defaults, and deterministic engine as `worldstate-check verify`. Command checks, network checks, and paths outside the verification root remain opt-in. See [docs/python-api.md](https://github.com/sylvesterkaczmarek/worldstate-check/blob/v0.3.0/docs/python-api.md) for additional embedding examples.
 
 ## Verification specification
 
@@ -199,7 +199,7 @@ checks:
     value: 25.0
 ```
 
-See [docs/specification.md](docs/specification.md) for all supported checks.
+See [docs/specification.md](https://github.com/sylvesterkaczmarek/worldstate-check/blob/v0.3.0/docs/specification.md) for all supported checks.
 
 ## Observation consistency
 
@@ -254,7 +254,7 @@ WorldState Check treats the verification specification as potentially powerful i
 - HTTP evidence redacts URL credentials, query strings, and fragments;
 - specifications and evidence reads have explicit size limits.
 
-See [docs/security.md](docs/security.md).
+See [docs/security.md](https://github.com/sylvesterkaczmarek/worldstate-check/blob/v0.3.0/docs/security.md).
 
 ## Example physical-system checks
 
@@ -284,7 +284,7 @@ JSON reports include:
 
 WorldState Check verifies declared postconditions against observations. It does not prove that sensors, endpoints, files, or other evidence sources are trustworthy or correctly calibrated. It also does not determine whether the original intent was safe.
 
-See [docs/assurance-model.md](docs/assurance-model.md) for the exact scope.
+See [docs/assurance-model.md](https://github.com/sylvesterkaczmarek/worldstate-check/blob/v0.3.0/docs/assurance-model.md) for the exact scope.
 
 ## Repository layout
 
@@ -324,21 +324,10 @@ The core verdict path is deterministic and does not call an LLM.
 
 ## Cite this repository
 
-If you use or adapt this repository, please cite:
-
-> Kaczmarek, S. (2026). *WorldState Check*. GitHub. https://github.com/sylvesterkaczmarek/worldstate-check
-
-```bibtex
-@software{Kaczmarek_2026_WorldState_Check,
-  author = {Sylvester Kaczmarek},
-  title  = {{WorldState Check}},
-  year   = {2026},
-  url    = {https://github.com/sylvesterkaczmarek/worldstate-check}
-}
-```
+Kaczmarek, S. (2026). *WorldState Check* (version 0.3.0) [Computer software]. [Release and citation details](https://github.com/sylvesterkaczmarek/worldstate-check/blob/main/docs/release-0.3.0.md#citation).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/sylvesterkaczmarek/worldstate-check/blob/v0.3.0/LICENSE).
 
 © **Sylvester Kaczmarek** · [https://www.sylvesterkaczmarek.com](https://www.sylvesterkaczmarek.com)
