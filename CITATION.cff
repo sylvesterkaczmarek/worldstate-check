@@ -6,6 +6,8 @@ authors:
   - family-names: Kaczmarek
     given-names: Sylvester
 version: 0.3.0
+commit: "7424c1d67097367d15683b682a4ab197607d7b4f"
+doi: "10.5281/zenodo.24410083"
 date-released: 2026-11-21
 abstract: >-
   Deterministic postcondition checks, offline observation replay, and a paired

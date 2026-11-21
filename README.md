@@ -3,6 +3,7 @@
 ![WorldState Check](https://raw.githubusercontent.com/sylvesterkaczmarek/worldstate-check/v0.3.0/assets/social/github-social-card-worldstate-check.png)
 
 [![CI](https://github.com/sylvesterkaczmarek/worldstate-check/actions/workflows/ci.yml/badge.svg)](https://github.com/sylvesterkaczmarek/worldstate-check/actions/workflows/ci.yml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24410083.svg)](https://doi.org/10.5281/zenodo.24410083)
 [![PyPI](https://img.shields.io/pypi/v/worldstate-check.svg)](https://pypi.org/project/worldstate-check/)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
@@ -324,7 +325,21 @@ The core verdict path is deterministic and does not call an LLM.
 
 ## Cite this repository
 
-Kaczmarek, S. (2026). *WorldState Check* (version 0.3.0) [Computer software]. [Release and citation details](https://github.com/sylvesterkaczmarek/worldstate-check/blob/main/docs/release-0.3.0.md#citation).
+Kaczmarek, S. (2026). *WorldState Check* (Version 0.3.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.24410083
+
+Use the DOI above to cite this release and its paired outcomes pilot. [DOI for all versions](https://doi.org/10.5281/zenodo.24410082).
+
+```bibtex
+@software{Kaczmarek_2026_WorldState_Check,
+  author    = {Kaczmarek, Sylvester},
+  title     = {{WorldState Check}},
+  version   = {0.3.0},
+  year      = {2026},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.24410083},
+  url       = {https://doi.org/10.5281/zenodo.24410083}
+}
+```
 
 ## License
 
