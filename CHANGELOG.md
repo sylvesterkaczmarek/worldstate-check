@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.3 development
+## 0.3.0
+
+21 November 2026. Observation replay and paired outcomes pilot.
 
 - Share HTTP response bytes per attempt and make redirects explicit.
 - Align field-presence and missing-value semantics. Validate freshness declarations.

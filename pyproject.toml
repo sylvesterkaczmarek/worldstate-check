@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "worldstate-check"
-version = "0.3.0.dev2"
+version = "0.3.0"
 description = "CLI-first deterministic postcondition verification for AI agents and autonomous systems, with an embeddable Python API."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -29,6 +29,7 @@ classifiers = [
 ]
 
 [project.urls]
+Citation = "https://github.com/sylvesterkaczmarek/worldstate-check/blob/main/docs/release-0.3.0.md#citation"
 Homepage = "https://github.com/sylvesterkaczmarek/worldstate-check"
 Repository = "https://github.com/sylvesterkaczmarek/worldstate-check"
 Issues = "https://github.com/sylvesterkaczmarek/worldstate-check/issues"
