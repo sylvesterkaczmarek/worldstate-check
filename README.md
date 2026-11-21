@@ -329,6 +329,18 @@ Kaczmarek, S. (2026). *WorldState Check* (Version 0.3.0) [Computer software]. Ze
 
 Use the DOI above to cite this release and its paired outcomes pilot. [DOI for all versions](https://doi.org/10.5281/zenodo.24410082).
 
+```bibtex
+@software{Kaczmarek_2026_WorldState_Check,
+  author    = {Kaczmarek, Sylvester},
+  title     = {{WorldState Check}},
+  version   = {0.3.0},
+  year      = {2026},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.24410083},
+  url       = {https://doi.org/10.5281/zenodo.24410083}
+}
+```
+
 ## License
 
 MIT. See [LICENSE](https://github.com/sylvesterkaczmarek/worldstate-check/blob/v0.3.0/LICENSE).
