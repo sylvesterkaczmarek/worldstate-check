@@ -51,15 +51,14 @@ def validate_report_data(data):
         fields.add("reason_code")
         if fingerprint is None:
             raise ValueError("schema-2 reports require a specification hash")
+    reasons = {
+        "PASS": ("satisfied",),
+        "FAIL": ("stale", "field_missing", "postcondition_failed"),
+        "UNKNOWN": ("field_missing", "incomplete_window", "inconclusive"),
+    }
     for row in rows:
         if not isinstance(row, dict) or row.keys() != fields:
             raise ValueError('invalid check result structure')
-        if "reason_code" in row and row["reason_code"] not in (
-            "satisfied", "stale", "field_missing", "incomplete_window", "inconclusive", "postcondition_failed"
-        ):
-            raise ValueError("invalid reason code")
-        if "reason_code" in row and (row["reason_code"] == "satisfied") != (row["status"] == "PASS"):
-            raise ValueError("reason code contradicts check status")
         identifier = row['check_id']
         if not isinstance(identifier, str) or not identifier.strip() or not identifier.isprintable() or identifier in seen:
             raise ValueError('invalid or duplicate check identifier')
@@ -68,6 +67,8 @@ def validate_report_data(data):
             raise ValueError('unknown reported check type')
         if type(row['required']) is not bool or row['status'] not in ('PASS','FAIL','UNKNOWN'):
             raise ValueError('invalid check requirement or status')
+        if "reason_code" in row and row["reason_code"] not in reasons[row["status"]]:
+            raise ValueError("reason code contradicts check status")
         if (not isinstance(row['summary'], str) or not isinstance(row['evidence'], dict)
                 or (row['error'] is not None and not isinstance(row['error'], str))
                 or not _finite_nonnegative(row['duration_ms'])):
@@ -154,15 +155,29 @@ def write_atomic_text(path, content, *, protected=()):
     return path.resolve()
 
 
+def _display_value(row, name):
+    reference = row["evidence"].get("value_references", {}).get(name)
+    if reference is not None:
+        return f'({reference["type"]}, {reference["size_bytes"]} bytes, sha256={reference["sha256"]})'
+    value = row[name]
+    if name in ("summary", "error"):
+        return safe_text(value)
+    return safe_text(json.dumps(value, ensure_ascii=False, sort_keys=True, allow_nan=False))
+
+
 def render_text(report: VerificationReport) -> str:
     lines = [f'WorldState Check: {safe_text(report.task)}', '']
     for result in report.results:
+        row = result.to_dict(inline_bytes=report.inline_value_bytes)
         requirement = 'required' if result.required else 'optional'
         lines.append(f'[{result.status.value:<7}] {safe_text(result.check_id)} ({safe_text(result.check_type)}, {requirement})')
-        lines.append(f'          {safe_text(result.summary)}')
-        for name in ('observed','expected'):
-            value = getattr(result,name)
-            if result.status is not CheckStatus.PASS and value is not None:
-                lines.append(f'          {name}: {safe_text(json.dumps(value, ensure_ascii=False, sort_keys=True, allow_nan=False))}')
+        lines.append(f'          {_display_value(row, "summary")}')
+        if result.status is not CheckStatus.PASS:
+            references = row["evidence"].get("value_references", {})
+            for name in ("observed", "expected", "error"):
+                if name == "error" and result.error == result.summary:
+                    continue
+                if row[name] is not None or name in references:
+                    lines.append(f'          {name}: {_display_value(row, name)}')
     lines.extend(['',f'VERDICT: {report.verdict.value}', f'Required checks: {report.required_passed}/{report.required_total} passed',f'Attempts: {report.attempts}'])
     return '\n'.join(lines)

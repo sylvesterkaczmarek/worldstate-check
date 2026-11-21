@@ -23,7 +23,7 @@ from .util import (
 )
 
 FORMAT = "worldstate-check/observations/1"
-EVALUATOR = 1
+EVALUATOR = 2
 
 
 def fingerprint(value):
@@ -93,7 +93,7 @@ def replay_data(data) -> VerificationReport:
         if (
             data["format"] != FORMAT
             or type(data["evaluator"]) is not int
-            or data["evaluator"] != EVALUATOR
+            or data["evaluator"] not in (1, EVALUATOR)
         ):
             raise ReplayError("unsupported recording format or evaluator")
         payload = dict(data)
@@ -128,7 +128,7 @@ def replay_data(data) -> VerificationReport:
             events = attempt["events"]
             if not isinstance(events, list):
                 raise ReplayError("invalid attempt events")
-            frame = Frame(events, replay=True)
+            frame = Frame(events, replay=True, legacy_window_identity=data["evaluator"] == 1)
             results = evaluate_once(spec, replace(ctx, _frame=frame))
             verdict = derive_verdict(results)
             if (

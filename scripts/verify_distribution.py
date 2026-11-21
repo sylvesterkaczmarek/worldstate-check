@@ -46,14 +46,22 @@ def main():
         name,version=project_metadata['name'],project_metadata['version']
         metadata_identity((project/'PKG-INFO').read_bytes(),name,version)
         package=project/'src/worldstate_check'
-        reference={'worldstate_check/'+p.relative_to(package).as_posix():p.read_bytes() for p in package.rglob('*.py')}
+        reference = {
+            'worldstate_check/' + path.relative_to(package).as_posix(): path.read_bytes()
+            for path in package.rglob('*')
+            if path.is_file() and (path.suffix == '.py' or package / 'data' in path.parents)
+        }
         with zipfile.ZipFile(wheel) as archive:
             names=archive.namelist()
             if len(set(names))!=len(names):raise ValueError('duplicate wheel members')
             metadata=[n for n in names if n.endswith('.dist-info/METADATA')]
             if len(metadata)!=1:raise ValueError('ambiguous wheel metadata')
             metadata_identity(archive.read(metadata[0]),name,version)
-            actual={n:archive.read(n) for n in names if n.startswith('worldstate_check/') and n.endswith('.py')}
+            actual = {
+                name: archive.read(name) for name in names
+                if name.startswith('worldstate_check/') and not name.endswith('/')
+                and (name.endswith('.py') or name.startswith('worldstate_check/data/'))
+            }
             if actual!=reference:raise ValueError('wheel/source runtime mismatch')
         environment=root/'venv';venv.EnvBuilder(with_pip=True).create(environment)
         python=environment/('Scripts/python.exe' if os.name=='nt' else 'bin/python')
@@ -66,7 +74,8 @@ def main():
         run(['scripts/showcase.py','--out',str(root/'showcase')])
         run(['-m','worldstate_check','demo','--scenario','verified'])
         run(['-m','worldstate_check','verify','examples/field-maintenance.yaml'])
-        report={'status':'PASS','distribution':name,'version':version,'runtime_modules_matched':len(reference),
+        report={'status':'PASS','distribution':name,'version':version,'runtime_modules_matched':sum(n.endswith('.py') for n in reference),
+                'runtime_data_files_matched':sum(n.startswith('worldstate_check/data/') for n in reference),
                 'installation':'fresh non-editable wheel outside checkout',
                 'runtime_dependencies':project_metadata['dependencies'],
                 'wheel_sha256':hashlib.sha256(wheel.read_bytes()).hexdigest(),
